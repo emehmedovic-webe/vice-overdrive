@@ -1,0 +1,41 @@
+# Manuelle Testläufe mit echten Konten – weiterhin OHNE Veröffentlichung.
+# Bewusst KEIN schedule: GitHub Actions ist hier nur für Entwicklung/Test gedacht.
+name: VICE OVERDRIVE manueller Lauf
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "Was testen?"
+        type: choice
+        options: [radar, publish-dry-run]
+        default: radar
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Twitch-Radar (nur Entdecken)
+        if: inputs.step == 'radar'
+        env:
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+        run: python3 -m vo radar && cat data/radar/*.md
+      - name: Publish Dry-Run (YouTube + TikTok/Buffer)
+        if: inputs.step == 'publish-dry-run'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          python3 -m vo selftest --out selftest-out
+          python3 -m vo --data selftest-out publish youtube
+          python3 -m vo --data selftest-out publish tiktok
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: manueller-lauf
+          retention-days: 3
+          path: |
+            data/radar/
+            selftest-out/logs/
+          if-no-files-found: ignore

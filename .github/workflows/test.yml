@@ -1,0 +1,35 @@
+# Manuell startbarer Test (Actions → "VICE OVERDRIVE Test" → Run workflow).
+# Nur Entwicklung/Test, KEIN Dauerbetrieb. Lädt nichts hoch und veröffentlicht nichts.
+name: VICE OVERDRIVE Test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg + Schrift installieren (nur im Runner)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+      - name: Original-Demo (VICE-OVERDRIVE-0EUR.py)
+        run: python3 VICE-OVERDRIVE-0EUR.py --out vo-demo
+      - name: Unit-Tests (offline, ohne Secrets)
+        run: python3 -m unittest discover -s tests -v
+      - name: Ende-zu-Ende-Selbsttest (synthetisch, Dry-Run)
+        run: python3 -m vo selftest --out selftest-out
+      - name: Format prüfen
+        run: |
+          for f in vo-demo/short.mp4 selftest-out/shorts/selftest-synthetic/short.mp4; do
+            ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$f" | tee /dev/stderr | grep -qx 'h264,1080,1920'
+          done
+      - name: Ergebnisse als privates Artefakt (3 Tage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: vice-overdrive-test-NICHT-POSTEN
+          retention-days: 3
+          path: |
+            vo-demo/
+            selftest-out/shorts/
+            selftest-out/logs/

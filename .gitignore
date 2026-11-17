@@ -1,0 +1,8 @@
+data/
+media/
+selftest-out/
+vo-demo/
+__pycache__/
+*.mp4
+*.mov
+.env
