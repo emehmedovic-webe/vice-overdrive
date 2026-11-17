@@ -31,9 +31,8 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
 |---|---|---|
 | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | Radar | dev.twitch.tv/console → Anwendung registrieren (Twitch-Konto mit 2FA nötig) |
 | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` | YouTube-Upload | Google Cloud Console: Projekt anlegen (ohne Abrechnungskonto), „YouTube Data API v3“ aktivieren, OAuth-Client (Typ „Web“, Redirect `https://developers.google.com/oauthplayground`) anlegen; Refresh-Token im OAuth 2.0 Playground mit eigenen Client-Daten und Scope `https://www.googleapis.com/auth/youtube.upload` erzeugen – alles im Browser, keine Installation |
-| `BUFFER_API_KEY` | TikTok über Buffer | publish.buffer.com/settings/api (API ist im Free-Plan enthalten) |
-| `BUFFER_TIKTOK_CHANNEL_ID` | Ziel-Kanal | per API-Abfrage `channels` nach Verbinden des TikTok-Kontos |
-| `VO_MEDIA_BASE_URL` | öffentliche Video-URL für Buffer | **offen**, siehe unten |
+| `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | TikTok-Upload | developers.tiktok.com → App „vice-overdrive“ → Produkte *Login Kit* + *Content Posting API*, Scopes `user.info.basic`, `video.upload`, `video.publish` |
+| `TIKTOK_REFRESH_TOKEN` | TikTok-Upload | über `site/callback.html` (Anmelden) + PowerShell-Befehl, den die Seite anzeigt – nichts installieren, gilt 365 Tage |
 
 ## Wichtige Grenzen der Gratis-Wege
 
@@ -41,10 +40,12 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
   Uploads aus **nicht geprüften** API-Projekten (nach dem 28.07.2020 angelegt) bleiben gesperrt **privat**,
   bis Google das Projekt prüft (Audit, kostenlos, dauert). Bis dahin: privat hochladen, in YouTube Studio
   selbst auf öffentlich/geplant stellen.
-- **Buffer Free**: 1 API-Key, 1.000 Requests/Kanal/30 Tage, kleine Warteschlange pro Kanal.
-  Buffer holt Videos **nur über einen öffentlichen Link**, Datei-Upload per API gibt es nicht.
-  Vor dem ersten Live-Lauf im Buffer-Konto prüfen, ob der TikTok-Kanal automatisches Veröffentlichen
-  anbietet; sonst `scheduling_type` in `config.json` auf `notification` stellen (Push aufs Handy).
+- **TikTok Content Posting API** (kostenlos, offiziell, kein Drittanbieter):
+  - Modus `inbox` (Standard): Das Video landet als Benachrichtigung/Entwurf in der TikTok-App,
+    du tippst dort Caption (aus `tiktok.txt`) ein und postest selbst. Max. 5 offene Uploads pro 24 h.
+  - Modus `direct`: TikTok veröffentlicht direkt mit Caption. Solange TikTok die App nicht geprüft hat (Audit),
+    ist jeder Post nur für dich sichtbar (`SELF_ONLY`) **und das Konto muss auf privat stehen**.
+  - Benötigt öffentliche Seiten für die App-Anmeldung: `site/` (Start, Datenschutz, Nutzungsbedingungen, Callback).
 - **Twitch**: Clips dürfen entdeckt, aber nicht ohne Erlaubnis des Streamers weiterverwendet werden.
 
 ## GitHub Actions
@@ -67,6 +68,5 @@ Gesucht war eine Laufzeit ohne hinterlegte Zahlungsmethode, die den Betrieb erla
 
 Offen bis zum Dauerbetrieb:
 1. Eine Laufzeit, die ohne Karte rendern darf (z. B. ein eigener, ohnehin laufender Rechner/Raspberry Pi – nicht der Arbeits-Mac).
-2. Ein öffentlicher, kostenloser Ablageort für die fertigen MP4 (für Buffer).
-3. Laufend eigene oder freigegebene Videodateien – das Radar liefert nur Ideen.
-4. Untertitel kommen aus Brief/.srt; automatische Transkription ist nicht eingebaut.
+2. Laufend eigene oder freigegebene Videodateien – das Radar liefert nur Ideen.
+3. Untertitel kommen aus Brief/.srt; automatische Transkription ist nicht eingebaut.

@@ -1,4 +1,4 @@
-"""Veröffentlichung: YouTube (offizielle Data API v3) und TikTok (über Buffer).
+"""Veröffentlichung: YouTube (offizielle Data API v3) und TikTok (offizielle Content Posting API).
 
 Standard ist IMMER Dry-Run. Live nur mit --live UND gesammelter Freigabe
 (approved: true im Freigabe-Batch). Synthetische Tests werden auch live hart blockiert.
@@ -14,14 +14,7 @@ from .common import http_json, iso, now_utc, read_json, secret, write_json
 
 YT_TOKEN_URL = "https://oauth2.googleapis.com/token"
 YT_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
-BUFFER_URL = "https://api.buffer.com"
 
-CREATE_POST = """mutation CreatePost($input: CreatePostInput!) {
-  createPost(input: $input) {
-    ... on PostActionSuccess { post { id text } }
-    ... on MutationError { message }
-  }
-}"""
 
 
 def load_short(short_dir: Path) -> dict:
@@ -107,30 +100,76 @@ def youtube_upload(video: Path, body: dict, token: str) -> str:
             return json.loads(resp.read())["id"]
 
 
-# ---------- TikTok über Buffer ----------
+# ---------- TikTok direkt (Content Posting API, kostenlos) ----------
+# Modus "inbox": Video landet als Entwurf/Benachrichtigung in der TikTok-App,
+#                 dort selbst fertig posten (Scope video.upload).
+# Modus "direct": Direct Post (Scope video.publish). Solange die App nicht von
+#                 TikTok geprüft ist, nur SELF_ONLY und nur bei PRIVATEM Konto.
 
-def buffer_input(m: dict, cfg: dict, channel_id: str) -> dict:
-    url = m.get("public_video_url") or (
-        os.environ.get("VO_MEDIA_BASE_URL", "").rstrip("/") + f"/{m['short_id']}.mp4"
-        if os.environ.get("VO_MEDIA_BASE_URL") else None)
-    if not url:
-        url = "https://BEISPIEL.invalid/fehlt-noch-oeffentliche-video-url.mp4"
-    b = cfg["buffer"]
-    return {"channelId": channel_id, "text": m["texts"]["tiktok"]["caption"],
-            "schedulingType": b["scheduling_type"], "mode": b["mode"], "needsApproval": False,
-            "assets": [{"video": {"url": url, "metadata": {"thumbnailOffset": 1500}}}],
-            "metadata": {"tiktok": {"isAiGenerated": False}}}
+TT_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
+TT_API = "https://open.tiktokapis.com/v2/post/publish"
+TT_MAX_SINGLE_CHUNK = 64 * 1024 * 1024
 
 
-def buffer_create(input_: dict) -> dict:
-    data = http_json("POST", BUFFER_URL, headers={"Authorization": f"Bearer {secret('BUFFER_API_KEY')}"},
-                     body={"query": CREATE_POST, "variables": {"input": input_}})
-    if data.get("errors"):
-        raise RuntimeError(f"Buffer-Fehler: {data['errors']}")
-    res = data["data"]["createPost"]
-    if res.get("message"):
-        raise RuntimeError(f"Buffer-Fehler: {res['message']}")
-    return res["post"]
+def tiktok_init_body(m: dict, cfg: dict, video_size: int, creator: dict | None = None) -> dict:
+    t = cfg["tiktok"]
+    source = {"source": "FILE_UPLOAD", "video_size": video_size,
+              "chunk_size": video_size, "total_chunk_count": 1}
+    if t["mode"] == "inbox":
+        return {"source_info": source}
+    privacy = t["privacy_level"]
+    if creator and privacy not in creator.get("privacy_level_options", []):
+        raise RuntimeError(f"privacy_level {privacy} nicht erlaubt, TikTok bietet: {creator.get('privacy_level_options')}")
+    return {"post_info": {"title": m["texts"]["tiktok"]["caption"], "privacy_level": privacy,
+                          "disable_comment": False, "disable_duet": False, "disable_stitch": False,
+                          "video_cover_timestamp_ms": 1500, "brand_content_toggle": False,
+                          "brand_organic_toggle": False, "is_aigc": False},
+            "source_info": source}
+
+
+def tiktok_endpoint(cfg: dict) -> str:
+    return f"{TT_API}/inbox/video/init/" if cfg["tiktok"]["mode"] == "inbox" else f"{TT_API}/video/init/"
+
+
+def tiktok_access_token() -> str:
+    data = http_json("POST", TT_TOKEN_URL, form={
+        "client_key": secret("TIKTOK_CLIENT_KEY"), "client_secret": secret("TIKTOK_CLIENT_SECRET"),
+        "grant_type": "refresh_token", "refresh_token": secret("TIKTOK_REFRESH_TOKEN")})
+    if "access_token" not in data:
+        raise RuntimeError(f"TikTok-Token fehlgeschlagen: {data.get('error')} {data.get('error_description')}")
+    if data.get("refresh_token") and data["refresh_token"] != os.environ.get("TIKTOK_REFRESH_TOKEN"):
+        print("HINWEIS: TikTok hat einen neuen Refresh-Token ausgegeben. Secret TIKTOK_REFRESH_TOKEN "
+              "bei Gelegenheit über die Verbinden-Seite erneuern (gilt 365 Tage).")
+    return data["access_token"]
+
+
+def _tt_call(path_or_url: str, token: str, body: dict) -> dict:
+    url = path_or_url if path_or_url.startswith("https://") else f"{TT_API}/{path_or_url}"
+    data = http_json("POST", url, headers={"Authorization": f"Bearer {token}",
+                                            "Content-Type": "application/json; charset=UTF-8"}, body=body)
+    err = data.get("error", {})
+    if err.get("code") not in (None, "ok"):
+        raise RuntimeError(f"TikTok-Fehler {err.get('code')}: {err.get('message')} (log_id {err.get('log_id')})")
+    return data.get("data", {})
+
+
+def tiktok_upload(video: Path, m: dict, cfg: dict, token: str) -> dict:
+    size = video.stat().st_size
+    if size > TT_MAX_SINGLE_CHUNK:
+        raise RuntimeError("Video größer als 64 MB – Shorts sollten deutlich kleiner sein.")
+    creator = None
+    if cfg["tiktok"]["mode"] == "direct":
+        creator = _tt_call("creator_info/query/", token, {})
+        if m["video"]["duration"] > creator.get("max_video_post_duration_sec", 600):
+            raise RuntimeError("Video ist länger, als TikTok für dieses Konto erlaubt.")
+    init = _tt_call(tiktok_endpoint(cfg), token, tiktok_init_body(m, cfg, size, creator))
+    put = urllib.request.Request(init["upload_url"], method="PUT", data=video.read_bytes(), headers={
+        "Content-Type": "video/mp4", "Content-Length": str(size),
+        "Content-Range": f"bytes 0-{size - 1}/{size}"})
+    with urllib.request.urlopen(put, timeout=600):
+        pass
+    status = _tt_call("status/fetch/", token, {"publish_id": init["publish_id"]})
+    return {"publish_id": init["publish_id"], "status": status.get("status"), "mode": cfg["tiktok"]["mode"]}
 
 
 # ---------- Ablauf ----------
@@ -146,7 +185,9 @@ def publish(target: str, shorts_root: Path, approvals_dir: Path, log_dir: Path, 
         if target == "youtube":
             payload = youtube_body(m, cfg)
         else:
-            payload = buffer_input(m, cfg, os.environ.get("BUFFER_TIKTOK_CHANNEL_ID", "<BUFFER_TIKTOK_CHANNEL_ID>"))
+            video = mf.parent / m["file"]
+            size = video.stat().st_size if video.exists() else 0
+            payload = {"endpoint": tiktok_endpoint(cfg), "body": tiktok_init_body(m, cfg, size)}
         entry = {"short_id": m["short_id"], "target": target, "mode": "live" if live else "dry-run",
                  "blocked": reason, "payload": payload}
         if live and not reason:
@@ -155,11 +196,9 @@ def publish(target: str, shorts_root: Path, approvals_dir: Path, log_dir: Path, 
                 vid = youtube_upload(mf.parent / m["file"], payload, token)
                 m.setdefault("published", {})["youtube"] = {"video_id": vid, "at": iso(now_utc())}
             else:
-                if "BEISPIEL.invalid" in payload["assets"][0]["video"]["url"]:
-                    raise SystemExit("Für Buffer fehlt eine öffentlich abrufbare Video-URL (VO_MEDIA_BASE_URL).")
-                payload["channelId"] = secret("BUFFER_TIKTOK_CHANNEL_ID")
-                post = buffer_create(payload)
-                m.setdefault("published", {})["tiktok"] = {"buffer_post_id": post["id"], "at": iso(now_utc())}
+                token = tiktok_access_token()
+                res = tiktok_upload(mf.parent / m["file"], m, cfg, token)
+                m.setdefault("published", {})["tiktok"] = {**res, "at": iso(now_utc())}
             write_json(mf, m)
             entry["result"] = m["published"][target]
         results.append(entry)

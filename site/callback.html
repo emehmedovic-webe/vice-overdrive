@@ -1,0 +1,40 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>vice-overdrive Verbinden</title><link rel="stylesheet" href="style.css"></head><body><main>
+<nav><a href="index.html">Start</a><a href="privacy.html">Datenschutz / Privacy</a><a href="terms.html">Nutzungsbedingungen / Terms</a></nav>
+<h1>TikTok verbinden</h1>
+<div id="start" class="card">
+<p>1. TikTok <strong>Client Key</strong> eintragen (das ist kein Geheimnis, steht auch in der Anmelde-Adresse):</p>
+<input id="ck" placeholder="Client Key" autocomplete="off"><p></p>
+<button id="go">Mit TikTok anmelden</button>
+<p class="muted">Redirect URI für das TikTok-Portal: <code id="ru"></code></p></div>
+<div id="done" class="card" hidden>
+<p>2. Anmeldung erfolgreich. Öffne auf dem Windows-PC <strong>PowerShell</strong> (Start → „PowerShell“), füge den Befehl unten ein und drücke Enter.
+Er fragt nach dem <strong>Client Secret</strong> (nur dort eingeben, nie im Chat) und zeigt dir den Refresh-Token.
+Den trägst du bei GitHub als Secret <code>TIKTOK_REFRESH_TOKEN</code> ein. Der Code ist nur wenige Minuten gültig.</p>
+<pre id="ps"></pre><button id="copy">Befehl kopieren</button></div>
+<div id="err" class="card" hidden></div>
+<script>
+const redirect = location.origin + location.pathname;
+document.getElementById('ru').textContent = redirect;
+const q = new URLSearchParams(location.search);
+if (q.get('error')) { const e=document.getElementById('err'); e.hidden=false; e.textContent='Fehler von TikTok: '+q.get('error')+' '+(q.get('error_description')||''); }
+if (q.get('code')) {
+  document.getElementById('start').hidden = true;
+  document.getElementById('done').hidden = false;
+  const ck = (q.get('state')||'').split('.')[0];
+  const ps = `$s = Read-Host "TikTok Client Secret"; $r = Invoke-RestMethod -Method Post -Uri "https://open.tiktokapis.com/v2/oauth/token/" -ContentType "application/x-www-form-urlencoded" -Body @{client_key="${ck}"; client_secret=$s; code="${q.get('code')}"; grant_type="authorization_code"; redirect_uri="${redirect}"}; if ($r.refresh_token) { "Scope: " + $r.scope; "TIKTOK_REFRESH_TOKEN:"; $r.refresh_token } else { $r | ConvertTo-Json }`;
+  document.getElementById('ps').textContent = ps;
+  document.getElementById('copy').onclick = () => navigator.clipboard.writeText(ps);
+  history.replaceState(null, '', location.pathname);
+}
+document.getElementById('go').onclick = () => {
+  const ck = document.getElementById('ck').value.trim(); if (!ck) return;
+  const state = ck + '.' + crypto.getRandomValues(new Uint32Array(2)).join('');
+  const u = new URL('https://www.tiktok.com/v2/auth/authorize/');
+  u.search = new URLSearchParams({client_key: ck, scope: 'user.info.basic,video.upload,video.publish',
+    response_type: 'code', redirect_uri: redirect, state}).toString();
+  location.href = u.toString();
+};
+</script>
+</main></body></html>

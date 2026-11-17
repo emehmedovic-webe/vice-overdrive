@@ -10,7 +10,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from vo.common import load_config, write_json  # noqa: E402
-from vo.publish import blocked_reason, buffer_input, make_batch, publish, youtube_body  # noqa: E402
+import vo.publish as pub  # noqa: E402
+from vo.publish import blocked_reason, make_batch, publish, tiktok_init_body, youtube_body  # noqa: E402
 from vo.render import RightsError, check_rights  # noqa: E402
 from vo.texts import build_texts  # noqa: E402
 from vo.twitch import Helix, dedupe, run_radar  # noqa: E402
@@ -129,9 +130,15 @@ class PublishTests(unittest.TestCase):
         yb = youtube_body(m, CFG)
         self.assertEqual(yb["status"]["privacyStatus"], "private")
         self.assertEqual(yb["snippet"]["defaultLanguage"], "de")
-        bi = buffer_input(m, CFG, "chan")
-        self.assertEqual(bi["mode"], "addToQueue")
-        self.assertEqual(bi["text"], m["texts"]["tiktok"]["caption"])
+        inbox = tiktok_init_body(m, CFG, 1234)
+        self.assertEqual(inbox, {"source_info": {"source": "FILE_UPLOAD", "video_size": 1234,
+                                                 "chunk_size": 1234, "total_chunk_count": 1}})
+        cfg = {**CFG, "tiktok": {"mode": "direct", "privacy_level": "SELF_ONLY"}}
+        direct = tiktok_init_body(m, cfg, 1234, {"privacy_level_options": ["SELF_ONLY", "FOLLOWER_OF_CREATOR"]})
+        self.assertEqual(direct["post_info"]["privacy_level"], "SELF_ONLY")
+        self.assertEqual(direct["post_info"]["title"], m["texts"]["tiktok"]["caption"])
+        with self.assertRaises(RuntimeError):
+            tiktok_init_body(m, cfg, 1234, {"privacy_level_options": ["PUBLIC_TO_EVERYONE"]})
 
     def test_dry_run_batch_flow_makes_no_network_calls(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -148,6 +155,53 @@ class PublishTests(unittest.TestCase):
             self.assertIsNone(res["own1"]["blocked"])
             self.assertEqual(res["own1"]["mode"], "dry-run")
             self.assertIn("synthetisch", res["syn1"]["blocked"])
+
+
+class TikTokFlowTest(unittest.TestCase):
+    """Simulierter Live-Ablauf gegen gefälschte TikTok-Antworten (kein Netzwerk)."""
+
+    def test_direct_flow_with_fake_api(self):
+        calls, puts = [], []
+
+        def fake_http(method, url, headers=None, params=None, body=None, form=None, timeout=30):
+            calls.append(url)
+            if url.endswith("/oauth/token/"):
+                return {"access_token": "at", "refresh_token": os.environ["TIKTOK_REFRESH_TOKEN"]}
+            if url.endswith("creator_info/query/"):
+                return {"data": {"privacy_level_options": ["FOLLOWER_OF_CREATOR", "SELF_ONLY"],
+                                 "max_video_post_duration_sec": 600}, "error": {"code": "ok"}}
+            if url.endswith("/video/init/"):
+                self.assertEqual(body["post_info"]["privacy_level"], "SELF_ONLY")
+                return {"data": {"publish_id": "p1", "upload_url": "https://upload.invalid/x"}, "error": {"code": "ok"}}
+            if url.endswith("status/fetch/"):
+                return {"data": {"status": "PROCESSING_UPLOAD"}, "error": {"code": "ok"}}
+            raise AssertionError(url)
+
+        class FakeResp:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_urlopen(req, timeout=0):
+            puts.append(dict(req.header_items()))
+            return FakeResp()
+
+        old_http, old_open = pub.http_json, pub.urllib.request.urlopen
+        pub.http_json, pub.urllib.request.urlopen = fake_http, fake_urlopen
+        os.environ.update(TIKTOK_CLIENT_KEY="k", TIKTOK_CLIENT_SECRET="s", TIKTOK_REFRESH_TOKEN="r")
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                video = Path(tmp) / "short.mp4"
+                video.write_bytes(b"x" * 1000)
+                m = {"texts": build_texts({"topic": "Test"}, CFG), "video": {"duration": 20}}
+                cfg = {**CFG, "tiktok": {"mode": "direct", "privacy_level": "SELF_ONLY"}}
+                res = pub.tiktok_upload(video, m, cfg, pub.tiktok_access_token())
+        finally:
+            pub.http_json, pub.urllib.request.urlopen = old_http, old_open
+            for k in ("TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"):
+                os.environ.pop(k, None)
+        self.assertEqual(res["publish_id"], "p1")
+        self.assertEqual(puts[0]["Content-range"], "bytes 0-999/1000")
+        self.assertTrue(calls[2].endswith("/post/publish/video/init/"))
 
 
 if __name__ == "__main__":

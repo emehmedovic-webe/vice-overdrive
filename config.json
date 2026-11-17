@@ -1,7 +1,13 @@
 {
   "youtube_channel": "@viceoverdrive6",
   "tiktok_account": "@viceoverdrive",
-  "twitch_watchlist": ["montanablack88", "eliasn97", "trymacs", "xrohat", "gtasty"],
+  "twitch_watchlist": [
+    "montanablack88",
+    "eliasn97",
+    "trymacs",
+    "xrohat",
+    "gtasty"
+  ],
   "discovery_category": "Grand Theft Auto VI",
   "language": "de",
   "radar": {
@@ -19,8 +25,18 @@
     "background": "0x150d21"
   },
   "texts": {
-    "base_hashtags_youtube": ["#Shorts", "#GTA6", "#GTAVI", "#ViceOverdrive"],
-    "base_hashtags_tiktok": ["#gta6", "#gtavi", "#gta6deutsch", "#viceoverdrive"]
+    "base_hashtags_youtube": [
+      "#Shorts",
+      "#GTA6",
+      "#GTAVI",
+      "#ViceOverdrive"
+    ],
+    "base_hashtags_tiktok": [
+      "#gta6",
+      "#gtavi",
+      "#gta6deutsch",
+      "#viceoverdrive"
+    ]
   },
   "youtube": {
     "privacy_status": "private",
@@ -28,8 +44,9 @@
     "default_language": "de",
     "made_for_kids": false
   },
-  "buffer": {
-    "scheduling_type": "automatic",
-    "mode": "addToQueue"
+  "tiktok": {
+    "mode": "inbox",
+    "privacy_level": "SELF_ONLY",
+    "_hinweis": "mode inbox = Entwurf in der TikTok-App selbst posten; direct = Direct Post (ungeprüfte App: nur SELF_ONLY und nur privates Konto)"
   }
 }
