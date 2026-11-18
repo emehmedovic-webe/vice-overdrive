@@ -391,6 +391,63 @@ class AutopilotTests(unittest.TestCase):
             self.assertEqual(self._cycle(data, self._item())["status"], "prepared")
             self.assertEqual(self._cycle(data, self._item("race-b", video="v456"))["status"], "no_suitable_clip")
 
+    def _stage_txt_short(self, data):
+        out = data / "shorts" / "twitch-race-a"
+        write_json(out / "manifest.json", {"short_id": out.name, "source": self._item()["url"],
+                   "file": "short.mp4", "streamer": "montanablack88",
+                   "rights": {"type": "clipper_program", "proof": "Test"}, "published": {}})
+        (out / "short.mp4").write_bytes(b"test")
+        texts = build_texts({"streamer": "montanablack88", "game": "gta5",
+                             "title": "Fast am Ziel", "hook": "Ein Clip",
+                             "description": "Kurz vor dem Ziel kippt der Wagen um.",
+                             "caption": "Wer hat den Wagen noch kommen sehen?"}, CFG)
+        yt = texts["youtube"]
+        (out / "youtube.txt").write_text(f"{yt['title']}\n\n{yt['description']}\n", encoding="utf-8")
+        (out / "tiktok.txt").write_text(texts["tiktok"]["caption"] + "\n", encoding="utf-8")
+        return out, texts
+
+    def test_file_mode_prepares_exact_texts_without_ollama_or_upload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            out, expected = self._stage_txt_short(data)
+            result = self._cycle(data, self._item(), text_source="files",
+                                 analyze=lambda *a: self.fail("Dateimodus darf nicht Ollama aufrufen"))
+            self.assertEqual(result["status"], "prepared")
+            manifest = json.loads((out / "manifest.json").read_text())
+            self.assertEqual(manifest["texts"]["youtube"], expected["youtube"])
+            self.assertEqual(manifest["texts"]["tiktok"], expected["tiktok"])
+            self.assertEqual(manifest["autopilot"]["text_source"], "files")
+            self.assertEqual(manifest["published"], {})
+
+    def test_file_mode_passes_exact_title_and_description_to_youtube(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            out, expected = self._stage_txt_short(data)
+
+            def fake_upload(video, body, access):
+                self.assertEqual(video, out / "short.mp4")
+                self.assertEqual(body["snippet"]["title"], expected["youtube"]["title"])
+                self.assertEqual(body["snippet"]["description"], expected["youtube"]["description"])
+                return "fake-file-mode-id"
+
+            result = self._cycle(data, self._item(), text_source="files", mode="private",
+                                 analyze=lambda *a: self.fail("Kein Ollama"),
+                                 token=lambda: "fake", channel=lambda *a: True, upload=fake_upload)
+            self.assertEqual(result["status"], "youtube_sent")
+
+    def test_file_mode_skips_missing_or_conflicting_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            out, _ = self._stage_txt_short(data)
+            caption = out / "tiktok.txt"
+            original = caption.read_text(encoding="utf-8")
+            caption.unlink()
+            opts = {"text_source": "files", "analyze": lambda *a: self.fail("Kein Ollama")}
+            self.assertEqual(self._cycle(data, self._item(), **opts)["status"], "no_suitable_clip")
+            for invalid in ("Quellenangabe fehlt", original + "#GTA6"):
+                caption.write_text(invalid, encoding="utf-8")
+                self.assertEqual(self._cycle(data, self._item(), **opts)["status"], "no_suitable_clip")
+
     def test_upload_gate_recognizes_account_and_does_not_repeat_moments(self):
         sends = []
 

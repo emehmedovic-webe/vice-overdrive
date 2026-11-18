@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from . import allowlist
+from .clip_game import clip_game
 from .common import media_env, write_json
 from .pipeline import make_short
 from .publish import TT_MAX_SINGLE_CHUNK, make_batch, publish
@@ -148,6 +149,10 @@ def prepare_clips(report: dict, cfg: dict, data: Path, *, limit: int = DEFAULT_L
                     "topic": topic, "title": topic, "hook": topic,
                     "description": f"{topic}\nOriginalclip: {url}",
                 }
+                # Bei bestätigtem Spiel auch ohne Bildmodell keine falschen GTA-Hashtags.
+                game = clip_game(clip, report.get("gta_categories", {}))
+                if game:
+                    brief["game"] = game
                 out = make_short(brief, cfg, stage, stage, short_id, source_url=url, require_subtitles=False)
                 video = out / "short.mp4"
                 if not 0 < probe(video)["duration"] <= 60:

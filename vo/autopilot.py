@@ -5,13 +5,15 @@ import hashlib
 import json
 import math
 import os
+import re
 import tempfile
 import time
 from contextlib import contextmanager
 from datetime import timedelta
 from pathlib import Path
 
-from .clip_game import GAME_NAMES, clip_game
+from . import allowlist
+from .clip_game import GAME_NAMES, clip_game, explicit_games
 from .clip_insights import AnalysisUnavailable, MODELS, NoVisualEvidence, describe
 from .common import http_json, iso, now_utc, parse_iso, read_json, secret
 from .publish import (
@@ -20,12 +22,14 @@ from .publish import (
 )
 from .radar_clips import ClipError, prepare_clips, source_for
 from .render import probe
-from .texts import build_texts
+from .texts import TIKTOK_CAPTION_MAX, YT_TITLE_MAX, build_texts
 from .twitch import run_radar
 
 INTERVAL = timedelta(hours=1)
 MP4_MAX_AGE = timedelta(hours=2)
 MAX_CANDIDATES = 3
+TEXT_SOURCES = ("ollama", "files")
+TEXT_TAG = re.compile(r"(?<!\w)[#@]\w+")
 LOCAL_ENV = {"TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "YT_API_KEY",
              "YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN",
              "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN", "TIKTOK_OPEN_ID"}
@@ -149,6 +153,43 @@ def _save_copy(out: Path, manifest: dict, cfg: dict, game: str, insights: dict, 
     return fingerprint
 
 
+def _read_copy(out: Path, manifest: dict, cfg: dict, game: str) -> tuple[dict, str]:
+    def read(name: str) -> str:
+        file = out / name
+        if file.is_symlink() or not file.is_file() or not 0 < file.stat().st_size <= 32 * 1024:
+            raise ValueError("Clip-Textdatei fehlt oder ist ungültig.")
+        return file.read_text(encoding="utf-8-sig").strip()
+
+    title, sep, description = read("youtube.txt").partition("\n")
+    title, description = title.strip(), description.strip()
+    caption = read("tiktok.txt")
+    if (not sep or not 0 < len(title) <= YT_TITLE_MAX or not description or not caption
+            or len(description.encode("utf-8")) > 5000 or len(caption) > TIKTOK_CAPTION_MAX
+            or any(c in title + description for c in "<>") or description == caption):
+        raise ValueError("Clip-Texte sind leer, zu lang oder ungültig.")
+    entry = allowlist.find(cfg, manifest["streamer"])
+    if not entry:
+        raise ValueError("Streamer-Quellenangabe fehlt.")
+    yt_tags, tt_tags = TEXT_TAG.findall(description), TEXT_TAG.findall(caption)
+    required = {t.casefold() if t.startswith(("#", "@")) else "#" + t.casefold()
+                for t in entry.get("required_tags", [])}
+    for copy, tags in ((description, yt_tags), (caption, tt_tags)):
+        if (entry["name"].casefold() not in copy.casefold() or allowlist.channel_url(entry) not in copy
+                or not required.issubset(t.casefold() for t in tags)):
+            raise ValueError("Pflicht-Tags oder Quellenangabe fehlen.")
+    common = "\n".join((title, description, caption))
+    no_urls = re.sub(r"https?://\S+", "", common)
+    if explicit_games(no_urls) - {game}:
+        raise ValueError("Clip-Texte nennen ein anderes Spiel.")
+    fingerprint = hashlib.sha256(" ".join(no_urls.casefold().split()).encode()).hexdigest()
+    return {
+        "hook": title, "credit": allowlist.credit_line(entry),
+        "youtube": {"title": title, "description": description,
+                    "tags": list(dict.fromkeys(t[1:] for t in yt_tags if t.startswith("#")))},
+        "tiktok": {"caption": caption, "hashtags": list(dict.fromkeys(tt_tags))},
+    }, fingerprint
+
+
 def _source_ids(clip: dict) -> set[str]:
     return {clip["id"], *(clip.get("duplicates") or [])}
 
@@ -249,11 +290,14 @@ def _send_youtube(video, manifest, cfg, mode, state, state_path, rec, clock, tok
 
 
 def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0], tiktok_inbox: bool = False,
+              text_source: str = "ollama",
               radar=run_radar, render=prepare_clips, analyze=describe,
               token=youtube_access_token, channel=youtube_is_channel, upload=youtube_upload,
               tt_token=tiktok_local_token, tt_upload=tiktok_upload, clock=now_utc) -> dict:
     if mode not in {"off", "private", "unlisted", "public"}:
         raise ValueError("Ungültiger YouTube-Modus.")
+    if text_source not in TEXT_SOURCES:
+        raise ValueError("Ungültige Textquelle.")
     live = mode != "off" or tiktok_inbox
     if live and os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
         raise ValueError("Live-Uploads sind auf GitHub Actions gesperrt.")
@@ -295,7 +339,8 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
             continue  # Altdatei bereinigt. Metadaten bleiben als Duplikatsperre.
         attempts += 1
         if not out.exists():
-            result = render({"top": [clip]}, cfg, data, limit=1, handoff=False)
+            result = render({"top": [clip], "gta_categories": report.get("gta_categories", {})},
+                            cfg, data, limit=1, handoff=False)
             if sid not in result["rendered"]:
                 continue
         try:
@@ -305,16 +350,24 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
             wants_tiktok = wants_tiktok and not already.get("tiktok")
             if live and not (wants_youtube or wants_tiktok):
                 continue
-            insights = analyze(video, duration, game, model)
+            if text_source == "files":
+                texts, copy_sha = _read_copy(out, manifest, cfg, game)
+            else:
+                insights = analyze(video, duration, game, model)
+                copy_sha = hashlib.sha256(insights["observation"].casefold().encode()).hexdigest()
         except AnalysisUnavailable:
             return {"status": "analysis_unavailable"}
         except (NoVisualEvidence, OSError, RuntimeError, ValueError, StopIteration):
             continue
 
-        copy_sha = hashlib.sha256(insights["observation"].casefold().encode()).hexdigest()
         if any(v.get("copy_sha256") == copy_sha for v in others):
             continue
-        _save_copy(out, manifest, cfg, game, insights, clip.get("title", ""))
+        if text_source == "files":
+            manifest.update(texts=texts, credit=texts["credit"],
+                            autopilot={"game": game, "text_source": "files", "copy_sha256": copy_sha})
+            atomic_json(out / "manifest.json", manifest)
+        else:
+            _save_copy(out, manifest, cfg, game, insights, clip.get("title", ""))
         rec = {"status": "prepared", **previous, "copy_sha256": copy_sha,
                "source_ids": sorted(_source_ids(clip)), "video_id": clip.get("video_id"),
                "vod_offset": clip.get("vod_offset")}
@@ -332,7 +385,8 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
     return {"status": "no_suitable_clip", "examined": attempts}
 
 
-def run(cfg: dict, data: Path, *, mode: str, model: str, watch: bool, tiktok_inbox: bool = False) -> int:
+def run(cfg: dict, data: Path, *, mode: str, model: str, watch: bool,
+        tiktok_inbox: bool = False, text_source: str = "ollama") -> int:
     root = data.resolve() / "autopilot"
     print(f"Autopilot lokal · YouTube-Kanal {cfg['youtube_channel']} · Sichtbarkeit: {mode} · "
           f"maximal ein Short pro Stunde · MP4-Aufbewahrung: 2 Stunden · TikTok-Inbox: {tiktok_inbox}.",
@@ -342,7 +396,8 @@ def run(cfg: dict, data: Path, *, mode: str, model: str, watch: bool, tiktok_inb
             while True:
                 started = time.monotonic()
                 removed = prune_mp4(root)
-                result = {**run_cycle(cfg, root, mode=mode, model=model, tiktok_inbox=tiktok_inbox), "mp4_removed": removed}
+                result = {**run_cycle(cfg, root, mode=mode, model=model, tiktok_inbox=tiktok_inbox,
+                                      text_source=text_source), "mp4_removed": removed}
                 atomic_json(root / "state" / "last-run.json", {**result, "at": iso(now_utc())})
                 print(json.dumps(result, ensure_ascii=False), flush=True)
                 if not watch:

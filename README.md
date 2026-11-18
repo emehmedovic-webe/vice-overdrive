@@ -89,6 +89,24 @@ Erster Lauf ohne Upload:
 python -m vo autopilot --env-file data/autopilot.env
 ```
 
+### Autopilot ohne Ollama
+
+Mit `--text-source files` erzeugt der bestehende Schnitt-Schritt Texte aus Radar-Titel,
+bestätigter Spielkategorie und Streamer-Quellenangabe. Der Upload-Schritt liest
+`youtube.txt` (erste Zeile Titel, danach Beschreibung) und `tiktok.txt` (Caption)
+aus demselben Short-Ordner. Vorhandene Texte können auch von einem anderen Texter
+stammen. Fehlen Texte, Pflicht-Tags oder die Quelle, wird der Clip übersprungen.
+Dieser Modus schaut den Bildinhalt nicht an und benötigt weder Ollama noch einen KI-API-Key.
+
+```sh
+python -m vo autopilot --text-source files --youtube off --env-file data/autopilot.env
+```
+
+`--watch` führt den lokalen Lauf stündlich aus. YouTube übernimmt Titel und
+Beschreibung beim ausdrücklich aktivierten Upload automatisch. TikToks Inbox
+überträgt nur das Video. Die vorbereitete Caption aus `tiktok.txt` wird in
+TikTok beim Fertigstellen des Posts eingefügt.
+
 Öffentliches Posten auf YouTube **erst bewusst einschalten**:
 
 ```sh
