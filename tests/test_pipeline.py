@@ -749,5 +749,28 @@ class TikTokFlowTest(unittest.TestCase):
         self.assertTrue(calls[2].endswith("/post/publish/video/init/"))
 
 
+
+class YouTubeCheckTest(unittest.TestCase):
+    def test_reports_missing_scope_and_wrong_channel_without_secrets(self):
+        from vo import youtube_check
+        env = {"YT_CLIENT_ID": "id", "YT_CLIENT_SECRET": "geheim", "YT_REFRESH_TOKEN": "rt"}
+
+        def fake_http(method, url, **kw):
+            if "tokeninfo" in url:
+                return {"scope": "https://www.googleapis.com/auth/youtube.upload"}
+            raise RuntimeError('HTTP 403 bei GET x: ACCESS_TOKEN_SCOPE_INSUFFICIENT')
+
+        with patch.dict(os.environ, env), \
+                patch.object(youtube_check, "youtube_access_token", return_value="tok-xyz"), \
+                patch.object(youtube_check, "http_json", side_effect=fake_http), \
+                patch("builtins.print") as out:
+            self.assertEqual(youtube_check.check("@viceoverdrive6"), 1)
+        text = " ".join(str(c.args[0]) for c in out.call_args_list)
+        self.assertIn("YT_PREFLIGHT_SCOPE_MISSING: youtube.readonly", text)
+        self.assertIn("YT_PREFLIGHT_CHANNEL_SCOPE_MISSING", text)
+        self.assertNotIn("tok-xyz", text)
+        self.assertNotIn("geheim", text)
+
+
 if __name__ == "__main__":
     unittest.main()

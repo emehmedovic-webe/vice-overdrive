@@ -7,7 +7,7 @@ on:
       step:
         description: "Was testen?"
         type: choice
-        options: [radar, radar-clips, publish-dry-run, tiktok-check, tiktok-revoke-old]
+        options: [radar, radar-clips, publish-dry-run, tiktok-check, tiktok-revoke-old, youtube-check]
         default: radar
 permissions:
   contents: read
@@ -50,6 +50,13 @@ jobs:
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
         run: python3 -m vo ${{ inputs.step }}
+      - name: YouTube-Zugang und Zielkanal prüfen (kein Upload)
+        if: inputs.step == 'youtube-check'
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python3 -m vo youtube-check
       - name: Publish Dry-Run (YouTube + TikTok)
         if: inputs.step == 'publish-dry-run'
         run: |
