@@ -8,42 +8,42 @@
         "twitch_login": "montanablack88",
         "name": "MontanaBlack",
         "active": true,
-        "proof": "",
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe). Beleg fehlt noch."
+        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe)."
       },
       {
         "twitch_login": "eligella",
         "name": "Eligella",
         "active": true,
-        "proof": "",
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "Clipper-Programm laut Enis im Stream angesagt. Beleg fehlt noch."
+        "notes": "Clipper-Programm laut Enis im Stream angesagt."
       },
       {
         "twitch_login": "xrohat",
         "name": "Rohat",
         "active": true,
-        "proof": "",
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "Clipper-Programm laut Enis im Stream angesagt. Beleg fehlt noch."
+        "notes": "Clipper-Programm laut Enis im Stream angesagt."
       },
       {
         "twitch_login": "xqc",
         "name": "xQc",
         "active": true,
-        "proof": "",
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt auch auf Kick; das Radar sieht nur Twitch. Beleg fehlt noch."
+        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt auch auf Kick; das Radar sieht nur Twitch."
       },
       {
         "twitch_login": "ishowspeed",
         "name": "IShowSpeed",
         "channel_url": "https://www.youtube.com/@IShowSpeed",
         "active": true,
-        "proof": "",
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: das Twitch-Radar findet hier kaum/keine Clips, Material per Brief einbringen. Quellenangabe verweist auf YouTube. Beleg fehlt noch."
+        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: das Twitch-Radar findet hier kaum/keine Clips, Material per Brief einbringen. Quellenangabe verweist auf YouTube."
       }
     ]
   },
