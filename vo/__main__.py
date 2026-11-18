@@ -84,6 +84,8 @@ def main(argv=None) -> None:
     pilot.add_argument("--watch", action="store_true", help="Stündlich erneut prüfen (höchstens ein Upload pro Stunde)")
     pilot.add_argument("--youtube", choices=("off", "private", "unlisted", "public"), default="off")
     pilot.add_argument("--tiktok-inbox", action="store_true", help="Entwürfe über TikToks offizielle Inbox-API senden")
+    pilot.add_argument("--text-source", choices=("ollama", "files"), default="ollama",
+                       help="files nutzt die TXT-Dateien zum Clip und braucht kein Ollama")
     pilot.add_argument("--model", choices=MODELS, default=MODELS[0])
     pilot.add_argument("--env-file", type=Path, help="Lokale KEY=VALUE-Datei, niemals ins Repo committen")
     mk = sub.add_parser("make"); mk.add_argument("brief")
@@ -113,7 +115,8 @@ def main(argv=None) -> None:
         try:
             if a.env_file:
                 load_local_env(a.env_file)
-            return run(cfg, data, mode=a.youtube, model=a.model, watch=a.watch, tiktok_inbox=a.tiktok_inbox)
+            return run(cfg, data, mode=a.youtube, model=a.model, watch=a.watch,
+                       tiktok_inbox=a.tiktok_inbox, text_source=a.text_source)
         except (OSError, ValueError, RuntimeError) as exc:
             # Netzfehler werden schon in run_cycle abgefangen. Keine OAuth-Antworten loggen.
             raise SystemExit(str(exc)) from None
