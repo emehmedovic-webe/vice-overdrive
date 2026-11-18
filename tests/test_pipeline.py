@@ -772,5 +772,14 @@ class YouTubeCheckTest(unittest.TestCase):
         self.assertNotIn("geheim", text)
 
 
+class ActionsUploadGuardTest(unittest.TestCase):
+    def test_live_upload_on_actions_needs_autopilot_workflow_flag(self):
+        from vo.autopilot import run_cycle
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "VO_ACTIONS_UPLOAD": ""}):
+            with self.assertRaises(ValueError):
+                run_cycle(CFG, Path(tmp), mode="private", radar=lambda *a: self.fail("kein Radar"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -299,8 +299,10 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
     if text_source not in TEXT_SOURCES:
         raise ValueError("Ungültige Textquelle.")
     live = mode != "off" or tiktok_inbox
-    if live and os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
-        raise ValueError("Live-Uploads sind auf GitHub Actions gesperrt.")
+    if (live and os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+            and os.environ.get("VO_ACTIONS_UPLOAD") != "1"):
+        # Nur der Autopilot-Workflow schaltet Uploads auf GitHub frei.
+        raise ValueError("Live-Uploads sind auf GitHub Actions nur im Autopilot-Workflow erlaubt.")
     if cfg["tiktok"]["mode"] != "inbox":
         raise ValueError("Lokaler Autopilot erfordert tiktok.mode=inbox.")
     state_path = data / "state" / "autopilot.json"
@@ -388,7 +390,7 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
 def run(cfg: dict, data: Path, *, mode: str, model: str, watch: bool,
         tiktok_inbox: bool = False, text_source: str = "ollama") -> int:
     root = data.resolve() / "autopilot"
-    print(f"Autopilot lokal · YouTube-Kanal {cfg['youtube_channel']} · Sichtbarkeit: {mode} · "
+    print(f"Autopilot · YouTube-Kanal {cfg['youtube_channel']} · Sichtbarkeit: {mode} · "
           f"maximal ein Short pro Stunde · MP4-Aufbewahrung: 2 Stunden · TikTok-Inbox: {tiktok_inbox}.",
           flush=True)
     try:
