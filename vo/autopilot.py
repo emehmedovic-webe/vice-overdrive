@@ -205,7 +205,7 @@ def _same_moment(clip: dict, prior: dict, window: float) -> bool:
                 and abs(now_offset - old_offset) <= window)
 
 
-def tiktok_local_token(data: Path, account: str) -> str:
+def tiktok_local_token(data: Path, account: str, mode: str = "inbox") -> str:
     """Nur lokal erneuern: TikTok kann einen neuen Refresh-Token zurückgeben."""
     path = data / "state" / "tiktok-token.json"
     client = secret("TIKTOK_CLIENT_KEY")
@@ -222,8 +222,9 @@ def tiktok_local_token(data: Path, account: str) -> str:
     replacement = result.get("refresh_token") or refresh
     if replacement != refresh:
         atomic_json(path, {"client_key": client, "initial_sha256": fingerprint, "refresh_token": replacement})
-    if "video.upload" not in {x.strip() for x in result.get("scope", "").split(",")}:
-        raise RuntimeError("TikTok-Berechtigung video.upload fehlt.")
+    needed = "video.publish" if mode == "direct" else "video.upload"
+    if needed not in {x.strip() for x in result.get("scope", "").split(",")}:
+        raise RuntimeError(f"TikTok-Berechtigung {needed} fehlt.")
     pinned_id = os.environ.get("TIKTOK_OPEN_ID", "").strip()
     if pinned_id:
         if result.get("open_id") != pinned_id:
@@ -238,7 +239,8 @@ def tiktok_local_token(data: Path, account: str) -> str:
 
 def _send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, token, upload):
     try:
-        access = token(data, cfg["tiktok_account"])
+        access = (token(data, cfg["tiktok_account"], cfg["tiktok"]["mode"])
+                  if cfg["tiktok"]["mode"] == "direct" else token(data, cfg["tiktok_account"]))
     except (OSError, RuntimeError, KeyError, ValueError, SystemExit):
         return {"status": "tiktok_auth_failed"}
     rec.update(tiktok_status="attempted", tiktok_at=iso(clock()))
@@ -304,8 +306,9 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
             and os.environ.get("VO_ACTIONS_UPLOAD") != "1"):
         # Nur der Autopilot-Workflow schaltet Uploads auf GitHub frei.
         raise ValueError("Live-Uploads sind auf GitHub Actions nur im Autopilot-Workflow erlaubt.")
-    if cfg["tiktok"]["mode"] != "inbox":
-        raise ValueError("Lokaler Autopilot erfordert tiktok.mode=inbox.")
+    tt = cfg["tiktok"]
+    if not (tt["mode"] == "inbox" or (tt["mode"] == "direct" and tt.get("privacy_level") == "SELF_ONLY")):
+        raise ValueError("Autopilot erlaubt TikTok nur als Inbox-Entwurf oder Direct Post mit SELF_ONLY.")
     state_path = data / "state" / "autopilot.json"
     state = read_json(state_path, {"last_attempt": None, "clips": {}})
     old = state["clips"]

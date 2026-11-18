@@ -16,9 +16,14 @@ on:
         options: [private, unlisted, public, off]
         default: private
       tiktok_inbox:
-        description: "Zusätzlich als Entwurf in die TikTok-Inbox senden (veröffentlicht nichts)"
+        description: "Zusätzlich an TikTok senden (Direct Post, nur „Nur ich“)"
         type: boolean
         default: false
+      max_uploads:
+        description: "Höchstens so viele Clips in diesem Durchgang (1-4)"
+        type: choice
+        options: ['4', '3', '2', '1']
+        default: '4'
   workflow_call:
     inputs:
       youtube:
@@ -56,6 +61,7 @@ jobs:
         env:
           VO_ACTIONS_UPLOAD: "1"
           YOUTUBE_MODE: ${{ inputs.youtube || vars.VO_YOUTUBE_MODE || 'public' }}
+          MAX_UPLOADS: ${{ inputs.max_uploads || '4' }}
           TIKTOK_INBOX: ${{ github.event_name == 'schedule' && (vars.VO_TIKTOK_INBOX || 'true') || (inputs.tiktok_inbox && 'true' || 'false') }}
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
@@ -71,7 +77,7 @@ jobs:
           extra=""
           if [ "$TIKTOK_INBOX" = "true" ]; then extra="--tiktok-inbox"; fi
           python3 -m vo autopilot --text-source files --youtube "$YOUTUBE_MODE" $extra \
-            --max-uploads 4 --min-gap-minutes 30
+            --max-uploads "$MAX_UPLOADS" --min-gap-minutes 30
       - name: Zustand sichern
         if: always()
         uses: actions/cache/save@v4
