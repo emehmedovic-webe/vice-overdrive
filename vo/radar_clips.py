@@ -105,8 +105,8 @@ def prepare_clips(report: dict, cfg: dict, data: Path, *, limit: int = DEFAULT_L
     """Verarbeitet höchstens limit geeignete Treffer in Radar-Reihenfolge."""
     if not 1 <= limit <= MAX_LIMIT:
         raise ValueError(f"limit muss zwischen 1 und {MAX_LIMIT} liegen.")
-    if cfg["tiktok"]["mode"] != "inbox":
-        raise ValueError("Radar-Clips erfordern tiktok.mode=inbox.")
+    if cfg["tiktok"]["mode"] not in {"inbox", "direct"}:
+        raise ValueError("Unbekannter TikTok-Modus.")
     seconds = min(float(cfg["render"]["max_seconds"]), MAX_CUT_SECONDS)
     if not math.isfinite(seconds) or seconds <= 0:
         raise ValueError("render.max_seconds muss eine positive, endliche Zahl sein.")

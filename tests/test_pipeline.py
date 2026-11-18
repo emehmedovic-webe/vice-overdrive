@@ -32,6 +32,7 @@ GTA6_ONLY = copy.deepcopy(CFG)
 # Bestehende Tests decken beide Spiele ab; der Live-Filter steht in config.json (nur GTA VI).
 CFG["gta_filter"]["categories"] = ["Grand Theft Auto V", "Grand Theft Auto VI"]
 CFG["gta_filter"]["games"] = ["gta5", "gta6"]
+CFG["tiktok"]["mode"] = "inbox"  # Live: direct + SELF_ONLY; Tests decken beide Modi ab.
 NOW = datetime(2026, 11, 17, 12, 0, tzinfo=timezone.utc)
 
 
@@ -259,10 +260,10 @@ class RadarClipTests(unittest.TestCase):
             self.assertFalse(list((root / "shorts").iterdir()))
             self.assertFalse((root / "approvals").exists())
 
-    def test_non_inbox_mode_is_rejected_before_download(self):
-        cfg = {**CFG, "tiktok": {**CFG["tiktok"], "mode": "direct"}}
+    def test_unknown_tiktok_mode_is_rejected_before_download(self):
+        cfg = {**CFG, "tiktok": {**CFG["tiktok"], "mode": "public-now"}}
         with tempfile.TemporaryDirectory() as tmp, patch("subprocess.run") as proc:
-            with self.assertRaisesRegex(ValueError, "inbox"):
+            with self.assertRaisesRegex(ValueError, "TikTok-Modus"):
                 prepare_clips({"top": [self._twitch()]}, cfg, Path(tmp))
             proc.assert_not_called()
 
@@ -509,6 +510,13 @@ class AutopilotTests(unittest.TestCase):
             again = run_export(CFG, root, Path(tmp) / "export2",
                                radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
             self.assertEqual(again, [])
+
+    def test_direct_mode_only_with_self_only(self):
+        cfg = {**CFG, "tiktok": {**CFG["tiktok"], "mode": "direct", "privacy_level": "PUBLIC_TO_EVERYONE"}}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
+            with self.assertRaises(ValueError):
+                run_cycle(cfg, Path(tmp), mode="off", tiktok_inbox=True,
+                          radar=lambda *a: self.fail("kein Radar"), clock=lambda: NOW)
 
     def test_file_mode_skips_missing_or_conflicting_text(self):
         with tempfile.TemporaryDirectory() as tmp:

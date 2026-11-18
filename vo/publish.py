@@ -225,7 +225,7 @@ def tiktok_upload(video: Path, m: dict, cfg: dict, token: str) -> dict:
     creator = None
     if cfg["tiktok"]["mode"] == "direct":
         creator = _tt_call("creator_info/query/", token, {})
-        if m["video"]["duration"] > creator.get("max_video_post_duration_sec", 600):
+        if (m.get("video") or {}).get("duration", 0) > creator.get("max_video_post_duration_sec", 600):
             raise RuntimeError("Video ist länger, als TikTok für dieses Konto erlaubt.")
     init = _tt_call(tiktok_endpoint(cfg), token, tiktok_init_body(m, cfg, size, creator))
     put = urllib.request.Request(init["upload_url"], method="PUT", data=video.read_bytes(), headers={
