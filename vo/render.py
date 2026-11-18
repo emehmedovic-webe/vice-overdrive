@@ -55,7 +55,8 @@ def _esc(text: str) -> str:
     return text.replace("\\", "\\\\").replace("{", "(").replace("}", ")").replace("\n", "\\N")
 
 
-def write_ass(path: Path, hook: str, subs: list[dict], duration: float, cfg: dict) -> None:
+def write_ass(path: Path, hook: str, subs: list[dict], duration: float, cfg: dict,
+              outro: float = 0.0) -> None:
     r = cfg["render"]
     font = r["font"]
     # Ränder so gewählt, dass Texte außerhalb der TikTok-/Shorts-Bedienelemente liegen.
@@ -69,12 +70,21 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Hook,{font},74,&H00FFFFFF,&H00FFFFFF,&H00A01EFF,&H00A01EFF,1,0,0,0,100,100,0,0,3,18,0,8,90,90,230,1
+Style: Mark,{font},34,&H50FFFFFF,&H50FFFFFF,&H80000000,&H00000000,1,0,0,0,100,100,0,0,1,2,0,9,40,40,{int(r['height'] * (1 - float(r.get('fg_height_ratio', 0.6))) / 2) + 24},1
+Style: Outro,{font},96,&H00FFFFFF,&H00FFFFFF,&H00A01EFF,&H00000000,1,0,0,0,100,100,2,0,1,6,0,5,60,60,0,1
 Style: Sub,{font},64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,1,0,0,0,100,100,0,0,1,6,2,2,110,170,560,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
-    lines = [f"Dialogue: 1,{_ts(0)},{_ts(min(3.0, duration))},Hook,,0,0,0,,{_esc(hook)}"]
+    # Hook bleibt die ganze Zeit oben stehen (TikTok-Zuschauer springen sonst nach 2 Sekunden ab).
+    hook_end = duration if r.get("hook_whole_clip", True) else min(3.0, duration)
+    lines = [f"Dialogue: 1,{_ts(0)},{_ts(hook_end)},Hook,,0,0,0,,{_esc(hook)}"]
+    if r.get("watermark"):
+        lines.append(f"Dialogue: 1,{_ts(0)},{_ts(duration)},Mark,,0,0,0,,{_esc(r['watermark'])}")
+    if outro > 0:
+        lines.append(f"Dialogue: 2,{_ts(duration)},{_ts(duration + outro)},Outro,,0,0,0,,"
+                     "VICE OVERDRIVE\\N{\\fs52}Folgen für mehr GTA 6")
     for s in subs:
         lines.append(f"Dialogue: 0,{_ts(s['start'])},{_ts(min(s['end'], duration))},Sub,,0,0,0,,{_esc(s['text'])}")
     path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
@@ -107,6 +117,65 @@ def probe(path: Path) -> dict:
             "duration": float(data["format"]["duration"])}
 
 
+def loudest_moment(src: Path, window: float = 0.5) -> float | None:
+    """Zeitpunkt (Sekunden) des lautesten Abschnitts, None ohne Ton oder bei Fehlern."""
+    try:
+        out = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-nostdin", "-i", str(src), "-vn", "-af",
+             f"asetnsamples=n={int(48000 * window)},aresample=48000,"
+             "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-",
+             "-f", "null", "-"], capture_output=True, text=True, timeout=300, env=media_env()).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    best, t, best_t = None, None, None
+    for line in out.splitlines():
+        if "pts_time:" in line:
+            t = float(line.rsplit("pts_time:", 1)[1])
+        elif "RMS_level=" in line and t is not None:
+            try:
+                v = float(line.split("=", 1)[1])
+            except ValueError:
+                continue
+            if best is None or v > best:
+                best, best_t = v, t
+    return best_t
+
+
+def auto_subtitles(src: Path, start: float, duration: float, model: str = "small") -> list[dict]:
+    """Deutsche Untertitel per faster-whisper (lokal, kostenlos). Leer, wenn nicht installiert."""
+    try:
+        from faster_whisper import WhisperModel  # nur im Actions-Runner installiert
+    except ImportError:
+        return []
+    try:
+        segs, _ = WhisperModel(model, device="cpu", compute_type="int8").transcribe(
+            str(src), language="de", vad_filter=True, word_timestamps=True,
+            clip_timestamps=[start, start + duration])
+        words = [w for seg in segs for w in (seg.words or [])]
+    except Exception as exc:  # Untertitel sind ein Extra, kein Grund für einen Abbruch
+        print(f"Untertitel übersprungen: {str(exc)[:200]}", flush=True)
+        return []
+    # Kurze Häppchen (max. 4 Wörter), gut lesbar auf dem Handy.
+    out, chunk = [], []
+    for w in words:
+        chunk.append(w)
+        if len(chunk) == 4 or w.word.strip().endswith((".", "!", "?", ",")):
+            out.append(chunk)
+            chunk = []
+    if chunk:
+        out.append(chunk)
+    return [{"start": max(0.0, c[0].start - start), "end": max(0.0, c[-1].end - start),
+             "text": " ".join(x.word.strip() for x in c)} for c in out if c[-1].end > c[0].start]
+
+
+def teaser_window(peak: float | None, start: float, duration: float, length: float) -> tuple[float, float] | None:
+    """Stärkster Moment als kurzer Vorspann, wenn er nicht ohnehin in den ersten Sekunden liegt."""
+    if peak is None or length <= 0 or peak - start < 4.0 or peak > start + duration:
+        return None
+    t0 = max(start, peak - length / 2)
+    return t0, length
+
+
 def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Path,
                  *, require_subtitles: bool = True) -> dict:
     for binary in ("ffmpeg", "ffprobe"):
@@ -119,32 +188,66 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
         raise FileNotFoundError(f"Quelldatei fehlt: {src}")
     start = float(brief.get("start", 0))
     duration = min(float(brief.get("duration", r["max_seconds"])), float(r["max_seconds"]))
+    src_info = probe(src)
+    duration = max(0.1, min(duration, src_info["duration"] - start))
     subs = brief.get("subtitles") or []
     if brief.get("subtitles_srt"):
         subs = parse_srt(base_dir / brief["subtitles_srt"])
+    if not subs and r.get("auto_subtitles"):
+        subs = auto_subtitles(src, start, duration, r.get("whisper_model", "small"))
     if require_subtitles and not subs:
         raise ValueError("Untertitel fehlen (subtitles oder subtitles_srt im Brief).")
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    write_ass(out_dir / "subs.ass", hook, subs, duration, cfg)
     W, H = r["width"], r["height"]
+    has_audio = src_info["audio_codec"] is not None
+    teaser = None
+    if has_audio and r.get("teaser_seconds", 1.5) > 0:
+        teaser = teaser_window(loudest_moment(src), start, duration, float(r.get("teaser_seconds", 1.5)))
+    total = duration
+    if teaser:
+        duration = min(duration, float(r["max_seconds"]) - teaser[1])
+        total = duration + teaser[1]
+        subs = [{**x, "start": x["start"] + teaser[1], "end": x["end"] + teaser[1]} for x in subs]
+    outro = float(r.get("outro_seconds", 0) or 0)
+    if total < 5 * outro:  # sehr kurze Clips ohne Abspann
+        outro = 0.0
+    if total + outro > float(r["max_seconds"]):
+        cut = total + outro - float(r["max_seconds"])
+        duration -= cut
+        total -= cut
+    write_ass(out_dir / "subs.ass", hook, subs, total, cfg, outro)
+    # Gameplay groß in der Mitte (zentraler Ausschnitt), unscharfer Rand nur noch schmal oben/unten.
+    fg_h = int(H * float(r.get("fg_height_ratio", 0.6))) // 2 * 2
+    if teaser:
+        head = ("[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[cv][ca];"
+                "[cv]setpts=PTS-STARTPTS,split=2[bg][fg];")
+    else:
+        head = "[0:v]split=2[bg][fg];"
     vf = (
-        f"[0:v]split=2[bg][fg];"
+        head +
         f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=24:2,eq=brightness=-0.12[bgb];"
-        f"[fg]scale={W}:{H}:force_original_aspect_ratio=decrease:force_divisible_by=2[fgs];"
-        f"[bgb][fgs]overlay=(W-w)/2:(H-h)/2,ass=subs.ass,format=yuv420p[v]"
+        f"[fg]scale=-2:{fg_h},crop='min(iw,{W})':{fg_h}[fgs];"
+        f"[bgb][fgs]overlay=(W-w)/2:(H-h)/2"
+        + (f",tpad=stop_duration={outro}:stop_mode=add:color={r.get('background', 'black')}" if outro > 0 else "")
+        + ",ass=subs.ass,format=yuv420p[v]"
     )
-    has_audio = probe(src)["audio_codec"] is not None
-    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-           "-ss", str(start), "-t", str(duration), "-i", str(src)]
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y"]
+    if teaser:
+        cmd += ["-ss", str(teaser[0]), "-t", str(teaser[1]), "-i", str(src)]
+    cmd += ["-ss", str(start), "-t", str(duration), "-i", str(src)]
     if not has_audio:
         cmd += ["-f", "lavfi", "-t", str(duration), "-i", "anullsrc=r=48000:cl=stereo"]
+    audio_map = "[ca]" if teaser else ("0:a:0" if has_audio else "1:a:0")
+    if outro > 0:
+        vf += f";{audio_map if audio_map.startswith('[') else '[' + audio_map + ']'}apad=pad_dur={outro}[pa]"
+        audio_map = "[pa]"
     video_limit = r.get("max_video_bitrate")
     vbv = ["-maxrate", video_limit, "-bufsize", video_limit] if video_limit else []
-    cmd += ["-filter_complex", vf, "-map", "[v]", "-map", "0:a:0" if has_audio else "1:a:0",
+    cmd += ["-filter_complex", vf, "-map", "[v]", "-map", audio_map,
             "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-r", "30", *vbv,
-            "-t", str(duration), "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart",
-            "-shortest", "short.mp4"]
+            "-t", str(total + outro), "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart",
+            "short.mp4"]
     subprocess.run(cmd, cwd=out_dir, check=True, env=media_env())
     info = probe(out_dir / "short.mp4")
     if (info["width"], info["height"], info["video_codec"]) != (W, H, "h264"):

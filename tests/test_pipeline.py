@@ -524,6 +524,13 @@ class AutopilotTests(unittest.TestCase):
                                radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
             self.assertEqual(again, [])
 
+    def test_teaser_only_when_peak_is_late(self):
+        from vo.render import teaser_window
+        self.assertIsNone(teaser_window(None, 0, 30, 1.5))
+        self.assertIsNone(teaser_window(2.0, 0, 30, 1.5))  # stärkster Moment ist schon vorne
+        self.assertEqual(teaser_window(11.0, 0, 30, 1.5), (10.25, 1.5))
+        self.assertIsNone(teaser_window(40.0, 0, 30, 1.5))  # außerhalb des Schnitts
+
     def test_export_mixes_streamers(self):
         from vo.export import mix_by_streamer
         top = [{"id": f"t{i}", "streamer_login": "trymacs", "view_count": 5} for i in range(4)]
