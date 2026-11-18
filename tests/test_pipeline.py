@@ -28,6 +28,10 @@ from vo.twitch import Helix, dedupe, run_radar  # noqa: E402
 from vo.youtube_radar import YouTubeReader, is_gta  # noqa: E402
 
 CFG = load_config()
+GTA6_ONLY = copy.deepcopy(CFG)
+# Bestehende Tests decken beide Spiele ab; der Live-Filter steht in config.json (nur GTA VI).
+CFG["gta_filter"]["categories"] = ["Grand Theft Auto V", "Grand Theft Auto VI"]
+CFG["gta_filter"]["games"] = ["gta5", "gta6"]
 NOW = datetime(2026, 11, 17, 12, 0, tzinfo=timezone.utc)
 
 
@@ -454,6 +458,17 @@ class AutopilotTests(unittest.TestCase):
             self.assertEqual(result["status"], "batch")
             self.assertEqual(result["youtube_sent"], 2)
             self.assertEqual(len(sent), 2)
+
+    def test_gta6_only_config_skips_gta5_clips(self):
+        self.assertEqual(GTA6_ONLY["gta_filter"]["games"], ["gta6"])
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch("vo.autopilot.probe", return_value={"width": 1080, "height": 1920,
+                                                          "video_codec": "h264", "duration": 23}), \
+                patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
+            result = run_cycle(GTA6_ONLY, Path(tmp), radar=lambda *a: {"top": [self._item()], "gta_categories": GAMES},
+                               render=lambda *a, **k: self.fail("GTA V darf nicht geschnitten werden"),
+                               clock=lambda: NOW)
+        self.assertEqual(result["status"], "no_suitable_clip")
 
     def test_file_mode_skips_missing_or_conflicting_text(self):
         with tempfile.TemporaryDirectory() as tmp:
