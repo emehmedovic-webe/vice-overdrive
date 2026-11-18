@@ -22,7 +22,7 @@ from .publish import (
 )
 from .radar_clips import ClipError, prepare_clips, source_for
 from .render import probe
-from .texts import TIKTOK_CAPTION_MAX, YT_TITLE_MAX, build_texts
+from .texts import TIKTOK_CAPTION_MAX, YT_TITLE_MAX, build_texts, tiktok_export_caption
 from .twitch import run_radar
 
 INTERVAL = timedelta(hours=1)
@@ -255,7 +255,23 @@ def tiktok_local_token(data: Path, account: str, mode: str = "inbox") -> str:
     return access
 
 
+def tiktok_post_manifest(manifest: dict) -> dict:
+    """Kopie fürs Posten: Caption nur Beschreibung + Hashtags. Quelle/Credit bleiben im Manifest (intern)."""
+    tiktok = manifest["texts"]["tiktok"]
+    raw = tiktok["caption"]
+    description = (manifest.get("autopilot") or {}).get("observation") or re.sub(r"(?<!\w)#\w+", "", raw)
+    hashtags = tiktok.get("hashtags") or re.findall(r"(?<!\w)#\w+", raw)
+    clean = tiktok_export_caption(description, hashtags)
+    return {**manifest, "texts": {**manifest["texts"], "tiktok": {**tiktok, "caption": clean}}}
+
+
 def _send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, token, upload):
+    if cfg["tiktok"]["mode"] == "direct":
+        try:
+            manifest = tiktok_post_manifest(manifest)
+        except (KeyError, ValueError) as exc:
+            print(f"TikTok-Caption ungültig, nicht gesendet: {str(exc)[:200]}", flush=True)
+            return {"status": "tiktok_caption_invalid"}
     try:
         access = (token(data, cfg["tiktok_account"], cfg["tiktok"]["mode"])
                   if cfg["tiktok"]["mode"] == "direct" else token(data, cfg["tiktok_account"]))
