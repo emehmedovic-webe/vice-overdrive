@@ -97,6 +97,9 @@ def main(argv=None) -> None:
     sub.add_parser("tiktok-revoke-old", help="Alten gespeicherten TikTok-Zugang widerrufen")
     sub.add_parser("tiktok-check", help="TikTok-Anmeldung echt prüfen, ohne Upload")
     sub.add_parser("youtube-check", help="YouTube-Zugang und Zielkanal prüfen, ohne Upload")
+    ex = sub.add_parser("export", help="Übrige GTA-Clips für manuelles TikTok-Posten exportieren")
+    ex.add_argument("--out", type=Path, default=Path("tiktok-export"))
+    ex.add_argument("--limit", type=int, default=15)
     pb = sub.add_parser("publish"); pb.add_argument("target", choices=["youtube", "tiktok"])
     pb.add_argument("--live", action="store_true", help="Wirklich veröffentlichen (nur freigegebene)")
     st = sub.add_parser("selftest"); st.add_argument("--out", default="selftest-out")
@@ -136,6 +139,11 @@ def main(argv=None) -> None:
             print(f"[{r['mode']}] {r['target']} {r['short_id']}: {r['blocked'] or 'würde veröffentlicht' if r['mode']=='dry-run' else r.get('result') or r['blocked']}")
         if not res:
             print("Keine Shorts vorhanden.")
+    elif a.cmd == "export":
+        from .export import run_export
+        rows = run_export(cfg, data.resolve() / "autopilot", a.out, limit=max(1, min(a.limit, 40)))
+        print(f"Export: {len(rows)} Clips in {a.out}")
+        return 0
     elif a.cmd == "youtube-check":
         from .youtube_check import check
         return check(cfg["youtube_channel"])
