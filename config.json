@@ -106,7 +106,7 @@
     "made_for_kids": false
   },
   "tiktok": {
-    "mode": "direct",
+    "mode": "inbox",
     "privacy_level": "SELF_ONLY",
     "_hinweis": "mode inbox = Entwurf in der TikTok-App selbst posten; direct = Direct Post (ungeprüfte App: nur SELF_ONLY und nur privates Konto)"
   }

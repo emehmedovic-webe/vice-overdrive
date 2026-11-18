@@ -61,14 +61,22 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
 ## Autopilot auf GitHub Actions (Dauerbetrieb)
 
 Workflow „VICE OVERDRIVE Autopilot“ (`.github/workflows/autopilot.yml`) läuft stündlich (Minute 7):
-Radar → Download → Schnitt → bis zu 4 YouTube-Uploads pro Durchgang (YouTube-API: höchstens 100 Uploads/Tag)
-und TikTok-Inbox-Entwürfe (TikTok: höchstens 5 offene Entwürfe in 24 Stunden, fertig posten in der App).
-Nichts wird auf einem eigenen Rechner gespeichert. Der Zustand gegen Doppel-Uploads liegt im Actions-Cache
-(ohne Videos und ohne TikTok-Token). Sichtbarkeit per Repo-Variable `VO_YOUTUBE_MODE`
-(`public` Standard, `private`, `unlisted`, `off`), TikTok aus mit `VO_TIKTOK_INBOX=false`.
+Radar → Download → Schnitt → höchstens ein **TikTok-Inbox-Entwurf**. Der GitHub-Autopilot
+veröffentlicht weder auf YouTube noch direkt auf TikTok. TikTok muss die Berechtigung
+`video.upload` für die verbundenen Zugangsdaten gewährt haben. Bei einem Token ohne
+`video.publish` zusätzlich das GitHub-Secret `TIKTOK_OPEN_ID` für den Kontenabgleich hinterlegen.
+
+TikTok überträgt hier **nur das Video**. Sobald TikTok `SEND_TO_USER_INBOX` meldet, ist der
+Entwurf an die TikTok-Inbox geschickt. In der App den TikTok-Posteingang öffnen, den Entwurf
+auswählen, die fertige Caption aus `caption.txt` einfügen und selbst posten. Das Actions-Artefakt
+`autopilot-short` enthält `short.mp4`, `caption.txt` und `last-run.json`; die Caption enthält
+immer `#fy` und `#fyp`. Das Video liegt nicht automatisch im normalen Entwürfe-Raster.
+
+Wenn TikTok noch verarbeitet, prüft der nächste Lauf dieselbe Publish-ID, ohne erneut zu senden.
+Der Zustand gegen Doppel-Uploads liegt im Actions-Cache (ohne Videos und ohne TikTok-Token).
+`VO_TIKTOK_INBOX=false` lässt nur Dateien vorbereiten. Für einen Einzeldurchgang:
+**Actions → VICE OVERDRIVE manueller Lauf → Run workflow → autopilot-tiktok-test**.
 Stoppen: Actions → „VICE OVERDRIVE Autopilot“ → „…“ → Disable workflow.
-Ein privater Probelauf: Workflow „manueller Lauf“ → `autopilot-privat-test`.
-Ungefähr 4–5 Minuten pro Clip. Deshalb ist das Repo öffentlich (unbegrenzte Actions-Minuten).
 
 ## Lokaler Autopilot (privater Rechner, nicht auf GitHub Actions)
 
@@ -110,7 +118,7 @@ aus demselben Short-Ordner. Vorhandene Texte können auch von einem anderen Text
 stammen. Fehlen Texte, Pflicht-Tags oder die Quelle, wird der Clip übersprungen.
 Dieser Modus schaut den Bildinhalt nicht an und benötigt weder Ollama noch einen KI-API-Key.
 
-Automatische Beschreibung: ungefähr 20–30 Wörter mit Bezug zum Titel oder zur erkannten Szene, ohne doppelte Titelzeile und ohne Standardfrage. YouTube erhält bis zu acht passende Hashtags. In der TikTok-Caption stehen höchstens fünf Hashtags, Pflicht-Tags und Quellenzeile bleiben erhalten. **TikTok-Export:** `caption.txt` enthält nur die Beschreibung und nach einer Leerzeile eine Hashtag-Zeile, ohne Link, „Clip von“, Standardfrage oder Notizen. Der Export prüft das (`tiktok_caption_problems`) und lässt einen Clip weg, statt eine fehlerhafte Caption zu schreiben. Die Quelle steht nur intern in `CAPTIONS.md`. [Neue Captions für den Export 01–11](docs/tiktok-captions-01-11.md).
+Automatische Beschreibung: ungefähr 20–30 Wörter mit Bezug zum Titel oder zur erkannten Szene, ohne doppelte Titelzeile und ohne Standardfrage. YouTube erhält bis zu acht passende Hashtags. In der TikTok-Caption stehen höchstens fünf Hashtags, einschließlich `#fy` und `#fyp`. Die unveränderten Rohtexte können Quellen- und Rechteinformationen für interne Prüfungen enthalten. **TikTok-Export:** `caption.txt` enthält nur die Beschreibung und nach einer Leerzeile eine Hashtag-Zeile, ohne Link, „Clip von“, Standardfrage oder Notizen. Der Export prüft das (`tiktok_caption_problems`) und lässt einen Clip weg, statt eine fehlerhafte Caption zu schreiben. Die Quelle steht nur intern in `CAPTIONS.md`. [Neue Captions für den Export 01–11](docs/tiktok-captions-01-11.md).
 
 ```sh
 python -m vo autopilot --text-source files --youtube off --env-file data/autopilot.env

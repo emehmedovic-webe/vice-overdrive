@@ -17,7 +17,7 @@ from .clip_game import GAME_NAMES, clip_game, explicit_games
 from .clip_insights import AnalysisUnavailable, MODELS, NoVisualEvidence, describe
 from .common import http_json, iso, now_utc, parse_iso, read_json, secret
 from .publish import (
-    TT_TOKEN_URL, _tt_call, blocked_reason, tiktok_upload, youtube_access_token,
+    TT_INBOX_READY, TT_TOKEN_URL, _tt_call, blocked_reason, tiktok_fetch_status, tiktok_upload, youtube_access_token,
     youtube_body, youtube_is_channel, youtube_upload,
 )
 from .radar_clips import ClipError, prepare_clips, source_for
@@ -30,6 +30,8 @@ MP4_MAX_AGE = timedelta(hours=2)
 MAX_CANDIDATES = 3
 TEXT_SOURCES = ("ollama", "files")
 STOP_STATUSES = {"youtube_auth_failed", "youtube_unconfirmed", "youtube_wrong_channel"}
+TT_STOP_STATUSES = {"tiktok_auth_failed", "tiktok_caption_invalid", "tiktok_failed",
+                    "tiktok_unconfirmed", "tiktok_inbox_limit", "tiktok_inbox_pending"}
 TEXT_TAG = re.compile(r"(?<!\w)[#@]\w+")
 LOCAL_ENV = {"TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "YT_API_KEY",
              "YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN",
@@ -205,7 +207,7 @@ def _same_moment(clip: dict, prior: dict, window: float) -> bool:
                 and abs(now_offset - old_offset) <= window)
 
 
-FINAL = {"attempted", "sent", "unconfirmed", "exported"}
+FINAL = {"attempted", "sent", "unconfirmed", "exported", "pending"}
 
 
 def load_state(state_path: Path, known: Path | None = None) -> dict:
@@ -259,7 +261,8 @@ def tiktok_post_manifest(manifest: dict) -> dict:
     """Kopie fürs Posten: Caption nur Beschreibung + Hashtags. Quelle/Credit bleiben im Manifest (intern)."""
     tiktok = manifest["texts"]["tiktok"]
     raw = tiktok["caption"]
-    description = (manifest.get("autopilot") or {}).get("observation") or re.sub(r"(?<!\w)#\w+", "", raw)
+    description = ((manifest.get("autopilot") or {}).get("observation") or manifest.get("tiktok_description")
+                   or re.sub(r"(?<!\w)#\w+", "", raw))
     hashtags = tiktok.get("hashtags") or re.findall(r"(?<!\w)#\w+", raw)
     clean = tiktok_export_caption(description, hashtags)
     return {**manifest, "texts": {**manifest["texts"], "tiktok": {**tiktok, "caption": clean}}}
@@ -290,15 +293,53 @@ def _send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, toke
         rec["tiktok_status"] = "waiting" if limited else "unconfirmed"
         atomic_json(state_path, state)
         return {"status": "tiktok_inbox_limit" if limited else "tiktok_unconfirmed"}
-    if result.get("status") == "FAILED":
+    return _record_tiktok(result, video.parent, manifest, state, state_path, rec, clock)
+
+
+def _record_tiktok(result, out, manifest, state, state_path, rec, clock):
+    api_status = result.get("status")
+    if api_status == "FAILED":
         rec["tiktok_status"] = "unconfirmed"
         atomic_json(state_path, state)
-        return {"status": "tiktok_failed"}
+        return {"status": "tiktok_failed", "api_status": api_status,
+                "reason": result.get("fail_reason")}
+    if result.get("mode") == "inbox" and api_status not in TT_INBOX_READY:
+        if not result.get("publish_id"):
+            rec["tiktok_status"] = "unconfirmed"
+            atomic_json(state_path, state)
+            return {"status": "tiktok_unconfirmed", "api_status": api_status}
+        rec.update(tiktok_status="pending", tiktok_publish_id=result["publish_id"])
+        atomic_json(state_path, state)
+        return {"status": "tiktok_inbox_pending", "api_status": api_status}
     rec["tiktok_status"] = "sent"
-    manifest.setdefault("published", {})["tiktok"] = {**result, "at": iso(clock())}
-    atomic_json(video.parent / "manifest.json", manifest)
+    # Nicht mit öffentlicher Veröffentlichung gleichsetzen.
+    if manifest:
+        manifest.setdefault("published", {})["tiktok"] = {**result, "at": iso(clock())}
+        atomic_json(out / "manifest.json", manifest)
     atomic_json(state_path, state)
-    return {"status": "tiktok_inbox_accepted", "api_status": result.get("status")}
+    return {"status": "tiktok_inbox_accepted" if result.get("mode") == "inbox" else "tiktok_direct_accepted",
+            "api_status": api_status}
+
+
+def _recheck_tiktok_inbox(cfg, data, state, state_path, clock, token, fetch_status):
+    pending = [(sid, rec) for sid, rec in state["clips"].items()
+               if rec.get("tiktok_status") == "pending" and rec.get("tiktok_publish_id")]
+    if not pending:
+        return None
+    sid, rec = pending[0]  # Ein ausstehender Entwurf wird geprüft, nicht erneut gesendet.
+    try:
+        access = token(data, cfg["tiktok_account"])
+    except (OSError, RuntimeError, KeyError, ValueError, SystemExit) as exc:
+        print(f"TikTok-Anmeldung fehlgeschlagen: {str(exc)[:300]}", flush=True)
+        return {"status": "tiktok_auth_failed", "short_id": sid}
+    try:
+        found = fetch_status(rec["tiktok_publish_id"], access)
+    except (OSError, RuntimeError, KeyError, ValueError):
+        return {"status": "tiktok_inbox_pending", "short_id": sid, "api_status": None}
+    result = {**found, "publish_id": rec["tiktok_publish_id"], "mode": "inbox"}
+    out = data / "shorts" / sid
+    manifest = read_json(out / "manifest.json", None)
+    return {**_record_tiktok(result, out, manifest, state, state_path, rec, clock), "short_id": sid}
 
 
 def _send_youtube(video, manifest, cfg, mode, state, state_path, rec, clock, token, channel, upload):
@@ -333,22 +374,28 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
               text_source: str = "ollama", max_uploads: int = 1, min_gap: timedelta = INTERVAL,
               radar=run_radar, render=prepare_clips, analyze=describe,
               token=youtube_access_token, channel=youtube_is_channel, upload=youtube_upload,
-              tt_token=tiktok_local_token, tt_upload=tiktok_upload, clock=now_utc) -> dict:
+              tt_token=tiktok_local_token, tt_upload=tiktok_upload, tt_fetch_status=tiktok_fetch_status,
+              clock=now_utc) -> dict:
     if mode not in {"off", "private", "unlisted", "public"}:
         raise ValueError("Ungültiger YouTube-Modus.")
     if text_source not in TEXT_SOURCES:
         raise ValueError("Ungültige Textquelle.")
     live = mode != "off" or tiktok_inbox
-    if (live and os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
-            and os.environ.get("VO_ACTIONS_UPLOAD") != "1"):
-        # Nur der Autopilot-Workflow schaltet Uploads auf GitHub frei.
-        raise ValueError("Live-Uploads sind auf GitHub Actions nur im Autopilot-Workflow erlaubt.")
     tt = cfg["tiktok"]
+    if live and os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
+        if os.environ.get("VO_ACTIONS_UPLOAD") != "1":
+            raise ValueError("Live-Uploads sind auf GitHub Actions nur im Autopilot-Workflow erlaubt.")
+        if mode != "off" or tt["mode"] != "inbox":
+            raise ValueError("Der GitHub-Autopilot darf nur TikTok-Inbox-Entwürfe senden.")
     if not (tt["mode"] == "inbox" or (tt["mode"] == "direct" and tt.get("privacy_level") == "SELF_ONLY")):
         raise ValueError("Autopilot erlaubt TikTok nur als Inbox-Entwurf oder Direct Post mit SELF_ONLY.")
     state_path = data / "state" / "autopilot.json"
     state = load_state(state_path)
     old = state["clips"]
+    if tiktok_inbox and tt["mode"] == "inbox":
+        rechecked = _recheck_tiktok_inbox(cfg, data, state, state_path, clock, tt_token, tt_fetch_status)
+        if rechecked is not None:
+            return rechecked
     if live and state.get("last_attempt"):
         remaining = min_gap - (clock() - parse_iso(state["last_attempt"]))
         if remaining > timedelta(0):
@@ -372,7 +419,7 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
         if any(w.casefold() in title for w in cfg.get("gta_filter", {}).get("title_blocklist", [])):
             continue  # z. B. Nacktszenen: Risiko für Kanal-Verwarnungen
         previous = old.get(sid, {})
-        final_states = {"attempted", "sent", "unconfirmed"}
+        final_states = {"attempted", "sent", "unconfirmed", "pending"}
         wants_youtube = mode != "off" and previous.get("status") not in final_states
         wants_tiktok = tiktok_inbox and previous.get("tiktok_status") not in final_states | {"exported"}
         if (not game or (live and not (wants_youtube or wants_tiktok))
@@ -417,6 +464,12 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
             atomic_json(out / "manifest.json", manifest)
         else:
             _save_copy(out, manifest, cfg, game, insights, clip.get("title", ""))
+        try:
+            ready_caption = tiktok_post_manifest(manifest)["texts"]["tiktok"]["caption"]
+            (out / "caption.txt").write_text(ready_caption + "\n", encoding="utf-8")
+        except (KeyError, OSError, ValueError) as exc:
+            print(f"TikTok-Caption ungültig, nicht gesendet: {str(exc)[:200]}", flush=True)
+            return {"status": "tiktok_caption_invalid", "short_id": sid}
         rec = {"status": "prepared", **previous, "copy_sha256": copy_sha,
                "source_ids": sorted(_source_ids(clip)), "video_id": clip.get("video_id"),
                "vod_offset": clip.get("vod_offset")}
@@ -434,7 +487,8 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
             result = {"status": "api_finished", "short_id": sid, "youtube": yt, "tiktok": tt}
         results.append(result)
         # Anmeldefehler oder unklarer Upload: in diesem Durchgang nichts weiter senden.
-        if (len(results) >= max_uploads or yt.get("status") in STOP_STATUSES):
+        if (len(results) >= max_uploads or yt.get("status") in STOP_STATUSES
+                or (result.get("tiktok") or {}).get("status") in TT_STOP_STATUSES):
             break
     if len(results) == 1:
         return results[0]
@@ -463,8 +517,11 @@ def run(cfg: dict, data: Path, *, mode: str, model: str, watch: bool,
                 atomic_json(root / "state" / "last-run.json", {**result, "at": iso(now_utc())})
                 print(json.dumps(result, ensure_ascii=False), flush=True)
                 if not watch:
-                    statuses = {result["status"], *(r.get("status") for r in result.get("results", []))}
-                    return 1 if statuses & ({"radar_failed", "analysis_unavailable"} | STOP_STATUSES) else 0
+                    runs = [result, *result.get("results", [])]
+                    statuses = {r.get("status") for r in runs}
+                    statuses.update((r.get("tiktok") or {}).get("status") for r in runs)
+                    stops = STOP_STATUSES | (TT_STOP_STATUSES - {"tiktok_inbox_pending", "tiktok_inbox_limit"})
+                    return 1 if statuses & ({"radar_failed", "analysis_unavailable"} | stops) else 0
                 next_check = max(1, INTERVAL.total_seconds() - (time.monotonic() - started))
                 time.sleep(result.get("wait_seconds", next_check))
     except KeyboardInterrupt:
