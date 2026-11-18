@@ -7,7 +7,7 @@ on:
       step:
         description: "Was testen?"
         type: choice
-        options: [radar, publish-dry-run]
+        options: [radar, publish-dry-run, tiktok-check, tiktok-revoke-old]
         default: radar
 permissions:
   contents: read
@@ -23,6 +23,13 @@ jobs:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
         run: python3 -m vo radar && cat data/radar/*.md
+      - name: TikTok prüfen bzw. alten Zugang widerrufen (kein Upload, nichts posten)
+        if: inputs.step == 'tiktok-check' || inputs.step == 'tiktok-revoke-old'
+        env:
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+        run: python3 -m vo ${{ inputs.step }}
       - name: Publish Dry-Run (YouTube + TikTok)
         if: inputs.step == 'publish-dry-run'
         run: |
