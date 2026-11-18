@@ -16,6 +16,7 @@ import os
 import re
 
 from . import allowlist
+from .clip_game import youtube_game
 from .common import http_json, parse_iso
 
 API = "https://www.googleapis.com/youtube/v3"
@@ -97,7 +98,7 @@ def find_videos(cfg: dict, reader: YouTubeReader, since, *, gta_only: bool = Tru
             dur = _seconds(v.get("contentDetails", {}).get("duration", ""))
             found.append({
                 "id": f"yt:{v['id']}", "url": f"https://www.youtube.com/watch?v={v['id']}",
-                "platform": "youtube", "broadcaster_id": f"yt:{ch['id']}",
+                "platform": "youtube", "game": youtube_game(sn), "broadcaster_id": f"yt:{ch['id']}",
                 "broadcaster_name": sn.get("channelTitle", st["name"]),
                 "streamer_login": st["twitch_login"].lower(), "title": sn.get("title", ""),
                 "language": sn.get("defaultAudioLanguage") or sn.get("defaultLanguage"),

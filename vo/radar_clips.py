@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import math
-import os
 import re
 import subprocess
 import tempfile
@@ -10,7 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from . import allowlist
-from .common import write_json
+from .common import media_env, write_json
 from .pipeline import make_short
 from .publish import TT_MAX_SINGLE_CHUNK, make_batch, publish
 from .render import probe
@@ -74,7 +73,7 @@ def source_for(clip: dict, cfg: dict) -> tuple[str, str, str]:
 
 def download_clip(url: str, platform: str, dest: Path, cut_seconds: float) -> Path:
     # Keine GitHub-/API-Secrets, Nutzer-Konfig, Plugins oder Cookies an yt-dlp übergeben.
-    env = {k: os.environ[k] for k in ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR") if k in os.environ}
+    env = media_env()
     cmd = [
         "yt-dlp", "--ignore-config", "--no-plugin-dirs", "--no-cache-dir", "--no-playlist",
         "--socket-timeout", "15", "--retries", "1", "--fragment-retries", "1",
@@ -101,7 +100,7 @@ def download_clip(url: str, platform: str, dest: Path, cut_seconds: float) -> Pa
 
 
 def prepare_clips(report: dict, cfg: dict, data: Path, *, limit: int = DEFAULT_LIMIT,
-                  download=download_clip) -> dict:
+                  download=download_clip, handoff: bool = True) -> dict:
     """Verarbeitet höchstens limit geeignete Treffer in Radar-Reihenfolge."""
     if not 1 <= limit <= MAX_LIMIT:
         raise ValueError(f"limit muss zwischen 1 und {MAX_LIMIT} liegen.")
@@ -163,7 +162,7 @@ def prepare_clips(report: dict, cfg: dict, data: Path, *, limit: int = DEFAULT_L
         else:
             result["rendered"].append(short_id)
 
-    if result["rendered"]:
+    if handoff and result["rendered"]:
         make_batch(shorts_root, data / "approvals")
         for target in ("tiktok", "youtube"):
             publish(target, shorts_root, data / "approvals", data / "logs", cfg, live=False)
