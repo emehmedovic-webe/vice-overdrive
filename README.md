@@ -58,6 +58,18 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
   Der Lauf lädt zu keiner Videoplattform hoch. Für einen echten TikTok-Entwurf oder YouTube-Upload gelten weiterhin
   die separate Freigabe und der explizite `--live`-Befehl für die jeweilige Plattform.
 
+## Autopilot auf GitHub Actions (Dauerbetrieb)
+
+Workflow „VICE OVERDRIVE Autopilot“ (`.github/workflows/autopilot.yml`) läuft stündlich (Minute 7):
+Radar → Download → Schnitt → bis zu 4 YouTube-Uploads pro Durchgang (YouTube-API: höchstens 100 Uploads/Tag)
+und TikTok-Inbox-Entwürfe (TikTok: höchstens 5 offene Entwürfe in 24 Stunden, fertig posten in der App).
+Nichts wird auf einem eigenen Rechner gespeichert. Der Zustand gegen Doppel-Uploads liegt im Actions-Cache
+(ohne Videos und ohne TikTok-Token). Sichtbarkeit per Repo-Variable `VO_YOUTUBE_MODE`
+(`public` Standard, `private`, `unlisted`, `off`), TikTok aus mit `VO_TIKTOK_INBOX=false`.
+Stoppen: Actions → „VICE OVERDRIVE Autopilot“ → „…“ → Disable workflow.
+Ein privater Probelauf: Workflow „manueller Lauf“ → `autopilot-privat-test`.
+Ungefähr 4–5 Minuten pro Clip. Deshalb ist das Repo öffentlich (unbegrenzte Actions-Minuten).
+
 ## Lokaler Autopilot (privater Rechner, nicht auf GitHub Actions)
 
 Der Autopilot hat getrennte Zuständigkeiten:
@@ -148,7 +160,7 @@ die KI-API an, weil das Modell lokal läuft.
 | Name | Wofür | Woher (kostenlos) |
 |---|---|---|
 | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | Radar | dev.twitch.tv/console → Anwendung registrieren (Twitch-Konto mit 2FA nötig) |
-| `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` | YouTube-Upload | Google Cloud Console: Projekt anlegen (ohne Abrechnungskonto), „YouTube Data API v3“ aktivieren, OAuth-Client (Typ „Web“, Redirect `https://developers.google.com/oauthplayground`) anlegen; Refresh-Token im OAuth 2.0 Playground mit eigenen Client-Daten und Scope `https://www.googleapis.com/auth/youtube.upload` erzeugen – alles im Browser, keine Installation |
+| `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` | YouTube-Upload | Google Cloud Console: Projekt anlegen (ohne Abrechnungskonto), „YouTube Data API v3“ aktivieren, OAuth-Client (Typ „Web“, Redirect `https://developers.google.com/oauthplayground`) anlegen; Refresh-Token im OAuth 2.0 Playground mit eigenen Client-Daten und Scopes `https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly` erzeugen (beim Login den Kanal @viceoverdrive6 wählen; prüfen mit Workflow „manueller Lauf“ → `youtube-check`) – alles im Browser, keine Installation |
 | `YT_API_KEY` | Radar auf YouTube (nur lesen) | Google Cloud Console, Projekt vice-overdrive → APIs & Dienste → Anmeldedaten → „Anmeldedaten erstellen“ → API-Schlüssel; auf „YouTube Data API v3“ beschränken. Kostenlos, keine Abrechnung nötig |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | TikTok-Upload | developers.tiktok.com → App „vice-overdrive“ → Produkte *Login Kit* + *Content Posting API*, Scopes `user.info.basic`, `video.upload`, `video.publish` |
 | `TIKTOK_REFRESH_TOKEN` | TikTok-Upload | über `site/callback.html` (Anmelden) + PowerShell-Befehl, den die Seite anzeigt – nichts installieren, gilt 365 Tage |

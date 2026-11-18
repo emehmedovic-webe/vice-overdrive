@@ -1,0 +1,98 @@
+# VICE OVERDRIVE Autopilot auf GitHub Actions (Entscheidung von Enis am 2026-11-18).
+# Ein Durchgang: Radar → Download → Schnitt → höchstens 1 Upload.
+# Stundenlauf: freigegeben von Enis am 2026-11-18 (Repo öffentlich, YouTube bis zu 4 pro Stunde,
+# TikTok höchstens 5 Inbox-Entwürfe pro Tag). Läuft erst, wenn diese Datei auf main liegt.
+# Sichtbarkeit ohne Code ändern: Repo-Variable VO_YOUTUBE_MODE (private/unlisted/public/off),
+# TikTok-Inbox abschalten: Repo-Variable VO_TIKTOK_INBOX=false.
+name: VICE OVERDRIVE Autopilot
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      youtube:
+        description: "YouTube-Sichtbarkeit (off = kein YouTube-Upload)"
+        type: choice
+        options: [private, unlisted, public, off]
+        default: private
+      tiktok_inbox:
+        description: "Zusätzlich als Entwurf in die TikTok-Inbox senden (veröffentlicht nichts)"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      youtube:
+        type: string
+        default: private
+      tiktok_inbox:
+        type: boolean
+        default: false
+concurrency:
+  group: vice-overdrive-autopilot
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zustand laden (verhindert doppelte Uploads)
+        uses: actions/cache/restore@v4
+        with:
+          path: data/autopilot
+          key: autopilot-state-${{ github.run_id }}
+          restore-keys: autopilot-state-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Werkzeuge installieren (nur im Runner)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          python3 -m venv "${RUNNER_TEMP}/vice-overdrive-venv"
+          "${RUNNER_TEMP}/vice-overdrive-venv/bin/python" -m pip install -q 'yt-dlp[default]==2026.10.26'
+      - name: Autopilot (ein Durchgang)
+        env:
+          VO_ACTIONS_UPLOAD: "1"
+          YOUTUBE_MODE: ${{ inputs.youtube || vars.VO_YOUTUBE_MODE || 'public' }}
+          TIKTOK_INBOX: ${{ github.event_name == 'schedule' && (vars.VO_TIKTOK_INBOX || 'true') || (inputs.tiktok_inbox && 'true' || 'false') }}
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+        run: |
+          export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
+          extra=""
+          if [ "$TIKTOK_INBOX" = "true" ]; then extra="--tiktok-inbox"; fi
+          python3 -m vo autopilot --text-source files --youtube "$YOUTUBE_MODE" $extra \
+            --max-uploads 4 --min-gap-minutes 30
+      - name: Zustand sichern
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/autopilot
+            !data/autopilot/**/*.mp4
+            !data/autopilot/**/*.mkv
+            !data/autopilot/**/*.webm
+            !data/autopilot/**/*.part
+            !data/autopilot/**/*.lock
+            !data/autopilot/state/tiktok-token.json
+          key: autopilot-state-${{ github.run_id }}
+      - name: Fertigen Short zur Kontrolle ablegen (3 Tage, privat)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autopilot-short
+          retention-days: 3
+          path: |
+            data/autopilot/shorts/
+            data/autopilot/state/last-run.json
+            !data/autopilot/state/tiktok-token.json
+          if-no-files-found: ignore

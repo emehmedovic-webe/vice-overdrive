@@ -87,11 +87,16 @@ def main(argv=None) -> None:
     pilot.add_argument("--text-source", choices=("ollama", "files"), default="ollama",
                        help="files nutzt die TXT-Dateien zum Clip und braucht kein Ollama")
     pilot.add_argument("--model", choices=MODELS, default=MODELS[0])
+    pilot.add_argument("--max-uploads", type=int, choices=range(1, 6), default=1,
+                       help="Höchstens so viele Shorts pro Durchgang (1-5)")
+    pilot.add_argument("--min-gap-minutes", type=int, default=60,
+                       help="Mindestabstand zum letzten Upload-Versuch in Minuten")
     pilot.add_argument("--env-file", type=Path, help="Lokale KEY=VALUE-Datei, niemals ins Repo committen")
     mk = sub.add_parser("make"); mk.add_argument("brief")
     sub.add_parser("batch")
     sub.add_parser("tiktok-revoke-old", help="Alten gespeicherten TikTok-Zugang widerrufen")
     sub.add_parser("tiktok-check", help="TikTok-Anmeldung echt prüfen, ohne Upload")
+    sub.add_parser("youtube-check", help="YouTube-Zugang und Zielkanal prüfen, ohne Upload")
     pb = sub.add_parser("publish"); pb.add_argument("target", choices=["youtube", "tiktok"])
     pb.add_argument("--live", action="store_true", help="Wirklich veröffentlichen (nur freigegebene)")
     st = sub.add_parser("selftest"); st.add_argument("--out", default="selftest-out")
@@ -116,7 +121,8 @@ def main(argv=None) -> None:
             if a.env_file:
                 load_local_env(a.env_file)
             return run(cfg, data, mode=a.youtube, model=a.model, watch=a.watch,
-                       tiktok_inbox=a.tiktok_inbox, text_source=a.text_source)
+                       tiktok_inbox=a.tiktok_inbox, text_source=a.text_source,
+                       max_uploads=a.max_uploads, min_gap_minutes=max(0, a.min_gap_minutes))
         except (OSError, ValueError, RuntimeError) as exc:
             # Netzfehler werden schon in run_cycle abgefangen. Keine OAuth-Antworten loggen.
             raise SystemExit(str(exc)) from None
@@ -130,6 +136,9 @@ def main(argv=None) -> None:
             print(f"[{r['mode']}] {r['target']} {r['short_id']}: {r['blocked'] or 'würde veröffentlicht' if r['mode']=='dry-run' else r.get('result') or r['blocked']}")
         if not res:
             print("Keine Shorts vorhanden.")
+    elif a.cmd == "youtube-check":
+        from .youtube_check import check
+        return check(cfg["youtube_channel"])
     elif a.cmd == "tiktok-revoke-old":
         from .publish import tiktok_revoke_stored
         print(tiktok_revoke_stored())

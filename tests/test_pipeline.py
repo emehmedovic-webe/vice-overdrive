@@ -351,11 +351,12 @@ class AutopilotTests(unittest.TestCase):
         defaults = {"mode": "off", "clock": lambda: NOW, "render": fake_render, "analyze": fake_analyze,
                     "token": lambda: self.fail("Ohne Live-Modus keine Anmeldung"),
                     "upload": lambda *a: self.fail("Kein echter Upload im Test")}
+        items = kw.pop("items", None) or [item]
         defaults.update(kw)
         with patch.dict(os.environ, {"GITHUB_ACTIONS": ""}), patch("vo.autopilot.probe", return_value={
             "width": 1080, "height": 1920, "video_codec": "h264", "duration": 23,
         }):
-            return run_cycle(CFG, root, radar=lambda *a: {"top": [item], "gta_categories": GAMES},
+            return run_cycle(CFG, root, radar=lambda *a: {"top": items, "gta_categories": GAMES},
                              **defaults)
 
     def test_distinguishes_games_and_conflicting_labels(self):
@@ -434,6 +435,25 @@ class AutopilotTests(unittest.TestCase):
                                  analyze=lambda *a: self.fail("Kein Ollama"),
                                  token=lambda: "fake", channel=lambda *a: True, upload=fake_upload)
             self.assertEqual(result["status"], "youtube_sent")
+
+    def test_batch_uploads_several_distinct_clips_per_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sent = []
+            items = [self._item("race-a", video="v1"), self._item("race-b", video="v2"),
+                     self._item("race-c", video="v3")]
+            def analyze(path, duration, game, model):
+                return {"scene": "pursuit", "evidence_frames": [2, 4],
+                        "headline": "Die Abkürzung zwischen zwei Streifenwagen",
+                        "observation": f"Szene {path.parent.name}: ein Wagen zieht vorbei.",
+                        "question": "Wärt ihr an der Stelle links abgebogen?"}
+
+            result = self._cycle(Path(tmp), None, items=items, mode="private", max_uploads=2,
+                                 analyze=analyze,
+                                 token=lambda: "fake", channel=lambda *a: True,
+                                 upload=lambda v, b, a: sent.append(v.parent.name) or f"id-{len(sent)}")
+            self.assertEqual(result["status"], "batch")
+            self.assertEqual(result["youtube_sent"], 2)
+            self.assertEqual(len(sent), 2)
 
     def test_file_mode_skips_missing_or_conflicting_text(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -747,6 +767,38 @@ class TikTokFlowTest(unittest.TestCase):
         self.assertEqual(res["publish_id"], "p1")
         self.assertEqual(puts[0]["Content-range"], "bytes 0-999/1000")
         self.assertTrue(calls[2].endswith("/post/publish/video/init/"))
+
+
+
+class YouTubeCheckTest(unittest.TestCase):
+    def test_reports_missing_scope_and_wrong_channel_without_secrets(self):
+        from vo import youtube_check
+        env = {"YT_CLIENT_ID": "id", "YT_CLIENT_SECRET": "geheim", "YT_REFRESH_TOKEN": "rt"}
+
+        def fake_http(method, url, **kw):
+            if "tokeninfo" in url:
+                return {"scope": "https://www.googleapis.com/auth/youtube.upload"}
+            raise RuntimeError('HTTP 403 bei GET x: ACCESS_TOKEN_SCOPE_INSUFFICIENT')
+
+        with patch.dict(os.environ, env), \
+                patch.object(youtube_check, "youtube_access_token", return_value="tok-xyz"), \
+                patch.object(youtube_check, "http_json", side_effect=fake_http), \
+                patch("builtins.print") as out:
+            self.assertEqual(youtube_check.check("@viceoverdrive6"), 1)
+        text = " ".join(str(c.args[0]) for c in out.call_args_list)
+        self.assertIn("YT_PREFLIGHT_SCOPE_MISSING: youtube.readonly", text)
+        self.assertIn("YT_PREFLIGHT_CHANNEL_SCOPE_MISSING", text)
+        self.assertNotIn("tok-xyz", text)
+        self.assertNotIn("geheim", text)
+
+
+class ActionsUploadGuardTest(unittest.TestCase):
+    def test_live_upload_on_actions_needs_autopilot_workflow_flag(self):
+        from vo.autopilot import run_cycle
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "VO_ACTIONS_UPLOAD": ""}):
+            with self.assertRaises(ValueError):
+                run_cycle(CFG, Path(tmp), mode="private", radar=lambda *a: self.fail("kein Radar"))
 
 
 if __name__ == "__main__":
