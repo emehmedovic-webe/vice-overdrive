@@ -16,6 +16,7 @@ import subprocess
 from pathlib import Path
 
 from . import allowlist
+from .common import media_env
 
 ALLOWED_RIGHTS = {"own", "licensed", "clipper_program", "synthetic"}
 
@@ -97,7 +98,7 @@ def parse_srt(path: Path) -> list[dict]:
 def probe(path: Path) -> dict:
     out = subprocess.check_output([
         "ffprobe", "-v", "error", "-show_entries",
-        "stream=codec_type,codec_name,width,height:format=duration", "-of", "json", str(path)], text=True)
+        "stream=codec_type,codec_name,width,height:format=duration", "-of", "json", str(path)], text=True, env=media_env())
     data = json.loads(out)
     v = next(s for s in data["streams"] if s["codec_type"] == "video")
     a = next((s for s in data["streams"] if s["codec_type"] == "audio"), None)
@@ -144,7 +145,7 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
             "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-r", "30", *vbv,
             "-t", str(duration), "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart",
             "-shortest", "short.mp4"]
-    subprocess.run(cmd, cwd=out_dir, check=True)
+    subprocess.run(cmd, cwd=out_dir, check=True, env=media_env())
     info = probe(out_dir / "short.mp4")
     if (info["width"], info["height"], info["video_codec"]) != (W, H, "h264"):
         raise RuntimeError(f"Unerwartetes Videoformat: {info}")

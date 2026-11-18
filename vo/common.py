@@ -73,3 +73,9 @@ def http_json(method: str, url: str, *, headers: dict | None = None,
         detail = exc.read().decode(errors="replace")[:500]
         raise RuntimeError(f"HTTP {exc.code} bei {method} {url.split('?')[0]}: {detail}") from None
     return json.loads(raw) if raw else {}
+
+def media_env() -> dict[str, str]:
+    """Werkzeuge für Mediendateien erhalten keine Radar- oder Upload-Zugangsdaten."""
+    return {k: os.environ[k] for k in (
+        "PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "SYSTEMROOT", "TEMP", "TMP", "USERPROFILE",
+    ) if k in os.environ}

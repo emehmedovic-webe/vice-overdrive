@@ -58,6 +58,73 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
   Der Lauf lädt zu keiner Videoplattform hoch. Für einen echten TikTok-Entwurf oder YouTube-Upload gelten weiterhin
   die separate Freigabe und der explizite `--live`-Befehl für die jeweilige Plattform.
 
+## Lokaler Autopilot (privater Rechner, nicht auf GitHub Actions)
+
+Der Autopilot hat getrennte Zuständigkeiten:
+
+1. **Clip-Agent:** Twitch/YouTube-Radar, belegte Allowlist und Abgleich auf bereits verarbeitete Clip-IDs oder VOD-Ausschnitte. Vorhandene Quelle-Rechtefilter bleiben aktiv.
+2. **Schnitt-Agent:** FFmpeg rendert 1080×1920 mit höchstens 60 Sekunden.
+3. **Beschreibungs-Agent:** Entnimmt der **fertigen** MP4 fünf Frames. Ein lokales Ollama-Bildmodell schreibt einen konkreten deutschen Hook, eine Beobachtung und eine passende Community-Frage. Keine Bilddaten gehen an einen KI-Cloud-Dienst. Audio wird nicht transkribiert.
+4. **Hashtag-Agent:** Bestätigt GTA V oder GTA VI anhand der Radar-Quelle und wählt zum erkannten Szenentyp passende Tags. Kein `#GTA6` für GTA-V-Clips. Pflicht-Tags, Streamer-Name und Kanal-Link bleiben erhalten.
+5. **Upload-Agent:** Sendet maximal einen passenden Short pro Stunde über die offizielle YouTube-API. Nur mit ausdrücklich gewählter Sichtbarkeit und geprüftem Zielkanal. Unsichere Uploads werden nicht blind wiederholt. TikTok kann separat per offizieller Inbox-API einen Entwurf empfangen. Die Caption liegt lokal; die Inbox-API setzt sie nicht und veröffentlicht nichts.
+
+### Start auf deinem privaten PC
+
+- Repo auf dem privaten Rechner auschecken. Benötigt Python 3.10+, FFmpeg/ffprobe, yt-dlp und Ollama.
+  `python -m pip install "yt-dlp[default]"` installiert den Downloader in deiner Python-Umgebung.
+  Für direkte, genehmigte YouTube-Downloads zusätzlich Node 22+ installieren.
+- Lokales Ollama starten und einmal `ollama pull qwen3-vl:4b` ausführen. Je nach Rechner
+  ist `qwen3-vl:2b` die kleinere Alternative (`--model qwen3-vl:2b`).
+- Lege optional lokal `data/autopilot.env` mit je einer Zeile `NAME=WERT` an
+  (Twitch-Zugang und optional `YT_API_KEY` für das Radar). Für YouTube-Uploads zusätzlich
+  `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN`.
+  Der Refresh-Token muss für **@viceoverdrive6** erzeugt sein und für diesen Autopilot
+  `https://www.googleapis.com/auth/youtube.upload` sowie `https://www.googleapis.com/auth/youtube.readonly`
+  umfassen, damit der Uploader den Zielkanal vor dem Upload prüfen kann. Ein reiner Upload-Token
+  garantiert die Kontoprüfung nicht. Die Datei unter `data/` bleibt lokal und wird von Git ignoriert.
+
+Erster Lauf ohne Upload:
+
+```sh
+python -m vo autopilot --env-file data/autopilot.env
+```
+
+Öffentliches Posten auf YouTube **erst bewusst einschalten**:
+
+```sh
+python -m vo autopilot --watch --youtube public --env-file data/autopilot.env
+```
+
+Mit `--tiktok-inbox` wird derselbe fertige Clip zusätzlich an TikToks Inbox geschickt.
+Dafür lokal einen **frischen** `TIKTOK_REFRESH_TOKEN`, `TIKTOK_CLIENT_KEY` und
+`TIKTOK_CLIENT_SECRET` hinterlegen. TikTok muss `video.upload` erlaubt haben.
+Bei einem reinen Inbox-Token zusätzlich `TIKTOK_OPEN_ID` aus der OAuth-Antwort des eigenen
+Kontos verwenden. Bestehende Tokens mit `video.publish` können das Konto alternativ
+über den Creator-Info-Endpunkt bestätigen. Die App veröffentlicht dadurch nichts direkt.
+Rotierte Refresh-Tokens bleiben in `data/autopilot/state/tiktok-token.json` auf dem privaten Rechner.
+TikTok begrenzt offene Inbox-Uploads. Bei abgewiesenem Inbox-Upload prüft der nächste Lauf erneut,
+bei einem unklaren Übertragungsstatus wird derselbe Clip nicht blind doppelt gesendet.
+
+Statt `public` gibt es `private`, `unlisted` und `off` (Standard). `--watch` startet den
+ersten Durchgang sofort und prüft danach stündlich. Die Sperre im lokalen Zustand verhindert
+einen verfrühten Upload nach einem Neustart. Der Rechner und Ollama müssen dabei laufen.
+Auf Windows startet `start-autopilot-windows.cmd` nach Einrichtung der obigen Python-Umgebung
+und `data/autopilot.env` den Stundenlauf ohne Upload. Verwende
+`start-autopilot-windows.cmd public` nur nach erfolgreichem Test und bewusster Upload-Freigabe.
+Mit `start-autopilot-windows.cmd public inbox` wird zusätzlich TikToks Inbox aktiviert.
+Für automatischen Start nach der Windows-Anmeldung kannst du die CMD-Datei in die Aufgabenplanung
+eintragen (Arbeitsordner = Repo-Ordner). Führe nur eine Instanz pro Datenordner aus.
+
+Bei unklarer Szene, widersprüchlicher Spielangabe, fehlendem Beleg oder wiederholtem Beschreibungstext
+wird kein Upload ausgelöst. Es gibt also nicht zwangsläufig 24 Uploads pro Tag.
+Der Autopilot löscht bei jedem Lauf seine eigenen `short.mp4` ab zwei Stunden Dateialter
+aus `data/autopilot/shorts/`. Quellvideos, andere MP4s, Beschreibungen, Manifeste und der
+Upload-Verlauf bleiben erhalten. Die Bereinigung ändert keine bereits hochgeladenen YouTube-Videos.
+Shorts und Texte liegen in `data/autopilot/shorts/`, letzter Status in
+`data/autopilot/state/last-run.json`. Erst ein Ergebnis `youtube_sent` mit Video-ID ist ein bestätigter Upload.
+Mit `--youtube off` wird nicht auf YouTube zugegriffen, um etwas zu senden. Es fallen keine Kosten für
+die KI-API an, weil das Modell lokal läuft.
+
 ## Secrets (nur als Umgebungsvariablen / GitHub-Repository-Secrets, nie in Chat oder Repo)
 
 | Name | Wofür | Woher (kostenlos) |
@@ -70,10 +137,9 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
 
 ## Wichtige Grenzen der Gratis-Wege
 
-- **YouTube API**: 10.000 Quota-Einheiten/Tag, ein Upload kostet 1.600 → max. ~6 Uploads/Tag.
-  Uploads aus **nicht geprüften** API-Projekten (nach dem 28.07.2020 angelegt) bleiben gesperrt **privat**,
-  bis Google das Projekt prüft (Audit, kostenlos, dauert). Bis dahin: privat hochladen, in YouTube Studio
-  selbst auf öffentlich/geplant stellen.
+- **YouTube API**: Suche und Upload haben eigene Projektkontingente. Die tatsächlich verfügbaren
+  Werte stehen in der Google Cloud Console. Der Autopilot setzt Sichtbarkeit ausdrücklich und
+  nutzt standardmäßig keinen Upload. Der Kontostatus kann weiterhin zusätzliche Grenzen setzen.
 - **TikTok Content Posting API** (kostenlos, offiziell, kein Drittanbieter):
   - Modus `inbox` (Standard): Das Video landet als Benachrichtigung/Entwurf in der TikTok-App,
     du tippst dort Caption (aus `tiktok.txt`) ein und postest selbst. Max. 5 offene Uploads pro 24 h.
@@ -95,9 +161,9 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
   die Ausgabengrenze bei 0 € belassen, falls Abrechnung eingerichtet ist.
 - **Kein Zeitplan.** Actions ist nur für Entwicklung und Test vorgesehen.
 
-## Dauerbetrieb: bewusst AUS
+## Dauerbetrieb: privat und lokal
 
-Gesucht war eine Laufzeit ohne hinterlegte Zahlungsmethode, die den Betrieb erlaubt und ffmpeg rendern kann. Ergebnis:
+Der lokale Autopilot ist im Repo verfügbar, aber wird nicht automatisch auf einem Gerät installiert.
 
 | Option | Ohne Karte? | Problem |
 |---|---|---|
@@ -105,7 +171,5 @@ Gesucht war eine Laufzeit ohne hinterlegte Zahlungsmethode, die den Betrieb erla
 | Oracle Cloud Always Free, Google Cloud, AWS, Azure | nein | Kreditkarte bei Anmeldung Pflicht |
 | Google Apps Script / Cloudflare Workers (Cron) | ja | kein ffmpeg → könnte nur das Radar übernehmen, nicht den Schnitt |
 
-Offen bis zum Dauerbetrieb:
-1. Eine Laufzeit, die ohne Karte rendern darf (z. B. ein eigener, ohnehin laufender Rechner/Raspberry Pi – nicht der Arbeits-Mac).
-2. Freigegebene Quellen für regelmäßige Radar-Schnitte.
-3. Untertitel kommen aus Brief/.srt; automatische Transkription ist nicht eingebaut.
+Für den Start den privaten Rechner wie oben einrichten. Die lokale Bildanalyse erstellt Texte,
+keine Audiotranskription. Untertitel kommen weiterhin manuell aus Brief oder .srt.

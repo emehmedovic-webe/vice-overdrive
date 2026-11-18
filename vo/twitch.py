@@ -204,7 +204,8 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
         "hinweis": "Nur Kanäle aus der Allowlist. Schnitt erst, wenn für den Streamer ein Beleg (proof) in config.json steht.",
         "top": [{k: c.get(k) for k in (
             "id", "url", "platform", "broadcaster_name", "streamer_login", "game_id", "title", "language", "view_count", "view_delta",
-            "velocity_per_hour", "is_new", "created_at", "duration", "found_via", "duplicates")}
+            "velocity_per_hour", "is_new", "created_at", "duration", "found_via", "duplicates",
+            "game", "video_id", "vod_offset")}
             for c in top],
     }
     for c in unique:

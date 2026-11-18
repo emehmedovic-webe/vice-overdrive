@@ -87,6 +87,17 @@ def youtube_access_token() -> str:
     return data["access_token"]
 
 
+def youtube_is_channel(token: str, expected_handle: str) -> bool:
+    """Prüft das eingeloggte Konto vor einer automatisch ausgelösten Aktion."""
+    data = http_json("GET", "https://www.googleapis.com/youtube/v3/channels",
+                     headers={"Authorization": f"Bearer {token}"},
+                     params={"part": "snippet", "mine": "true"})
+    items = data.get("items", [])
+    return (len(items) == 1 and bool(expected_handle.strip()) and
+            items[0].get("snippet", {}).get("customUrl", "").casefold().lstrip("@")
+            == expected_handle.casefold().lstrip("@"))
+
+
 def youtube_upload(video: Path, body: dict, token: str) -> str:
     size = video.stat().st_size
     init = urllib.request.Request(

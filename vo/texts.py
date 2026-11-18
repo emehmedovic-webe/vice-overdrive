@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 
 from . import allowlist
+from .clip_game import GAME_NAMES, hashtags
 
 YT_TITLE_MAX = 100
 TIKTOK_CAPTION_MAX = 2200
@@ -44,7 +45,14 @@ def build_texts(brief: dict, cfg: dict) -> dict:
         credit = allowlist.credit_line(streamer)
         extra_tags = [t if t.startswith(("#", "@")) else "#" + t for t in streamer.get("required_tags", [])]
 
-    yt_tags = _uniq(extra_tags + tcfg["base_hashtags_youtube"] + [_tag(k) for k in keywords])[:max(6, len(extra_tags) + 3)]
+    game = brief.get("game")
+    yt_base, tt_base = tcfg["base_hashtags_youtube"], tcfg["base_hashtags_tiktok"]
+    follow = "Mehr GTA-6-Shorts: @viceoverdrive6"
+    if game in GAME_NAMES:
+        yt_base = hashtags(game, brief.get("scene", "other"), "youtube")
+        tt_base = hashtags(game, brief.get("scene", "other"), "tiktok")
+        follow = f"Für mehr {GAME_NAMES[game]}-Clips: {cfg['youtube_channel']}"
+    yt_tags = _uniq(extra_tags + yt_base + [_tag(k) for k in keywords])[:max(6, len(extra_tags) + 3)]
     title = brief.get("title") or f"{topic}: {hook}"
     title = re.sub(r"\s+", " ", title).strip()
     suffix = " #Shorts"
@@ -56,10 +64,10 @@ def build_texts(brief: dict, cfg: dict) -> dict:
         desc_lines += ["", f"🎥 Clip von {streamer['name']}: {allowlist.channel_url(streamer)}"]
     elif credit:
         desc_lines += ["", f"Material: {credit}"]
-    desc_lines += ["", "Mehr GTA-6-Shorts: @viceoverdrive6", "", " ".join(yt_tags)]
+    desc_lines += ["", follow, "", " ".join(yt_tags)]
     description = "\n".join(desc_lines)
 
-    tt_tags = _uniq(extra_tags + tcfg["base_hashtags_tiktok"] + [_tag(k).lower() for k in keywords])[:max(8, len(extra_tags) + 4)]
+    tt_tags = _uniq(extra_tags + tt_base + [_tag(k).lower() for k in keywords])[:max(8, len(extra_tags) + 4)]
     caption_core = brief.get("caption") or f"{hook} {topic} 👀 Was hättet ihr gemacht?"
     attribution = ""
     if streamer:
