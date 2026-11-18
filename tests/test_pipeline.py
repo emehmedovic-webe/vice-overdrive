@@ -625,10 +625,30 @@ class AutopilotTests(unittest.TestCase):
             data = Path(tmp)
             kw = {"tiktok_inbox": True, "tt_token": lambda *a: "fake", "tt_upload": fake_upload}
             result = self._cycle(data, self._item(), **kw)
-            self.assertEqual(result["tiktok"]["status"], "tiktok_inbox_accepted")
+            self.assertEqual(result["tiktok"]["status"], "tiktok_inbox_delivered")
             self.assertEqual(result["youtube"]["status"], "off_or_already_attempted")
             self.assertEqual(self._cycle(data, self._item(), clock=lambda: NOW + timedelta(hours=1),
                                          **kw)["status"], "no_suitable_clip")
+            self.assertEqual(len(calls), 1)
+
+    def test_processing_tiktok_upload_is_not_reported_delivered_or_retried(self):
+        calls = []
+
+        def fake_upload(video, *args):
+            calls.append(video)
+            return {"publish_id": "fake", "status": "PROCESSING_UPLOAD", "mode": "inbox"}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            opts = {"tiktok_inbox": True, "tt_token": lambda *a: "fake", "tt_upload": fake_upload}
+            item = self._item()
+            result = self._cycle(data, item, **opts)
+            self.assertEqual(result["tiktok"]["status"], "tiktok_processing")
+            manifest = json.loads((calls[0].parent / "manifest.json").read_text())
+            self.assertNotIn("tiktok", manifest.get("published", {}))
+            self.assertEqual(manifest["tiktok_submission"]["publish_id"], "fake")
+            self.assertEqual(self._cycle(data, item, clock=lambda: NOW + timedelta(hours=1),
+                                         **opts)["status"], "no_suitable_clip")
             self.assertEqual(len(calls), 1)
 
     def test_tiktok_refresh_rotation_stays_local_and_reuses_new_token(self):
@@ -802,6 +822,7 @@ class TikTokFlowTest(unittest.TestCase):
 
     def test_direct_flow_with_fake_api(self):
         calls, puts = [], []
+        statuses = iter(("PROCESSING_UPLOAD", "PUBLISH_COMPLETE"))
 
         def fake_http(method, url, headers=None, params=None, body=None, form=None, timeout=30):
             calls.append(url)
@@ -814,7 +835,7 @@ class TikTokFlowTest(unittest.TestCase):
                 self.assertEqual(body["post_info"]["privacy_level"], "SELF_ONLY")
                 return {"data": {"publish_id": "p1", "upload_url": "https://upload.invalid/x"}, "error": {"code": "ok"}}
             if url.endswith("status/fetch/"):
-                return {"data": {"status": "PROCESSING_UPLOAD"}, "error": {"code": "ok"}}
+                return {"data": {"status": next(statuses)}, "error": {"code": "ok"}}
             raise AssertionError(url)
 
         class FakeResp:
@@ -834,12 +855,15 @@ class TikTokFlowTest(unittest.TestCase):
                 video.write_bytes(b"x" * 1000)
                 m = {"texts": build_texts({"topic": "Test"}, CFG), "video": {"duration": 20}}
                 cfg = {**CFG, "tiktok": {"mode": "direct", "privacy_level": "SELF_ONLY"}}
-                res = pub.tiktok_upload(video, m, cfg, pub.tiktok_access_token())
+                with patch("vo.publish.time.sleep") as delay:
+                    res = pub.tiktok_upload(video, m, cfg, pub.tiktok_access_token())
+                delay.assert_called_once_with(2)
         finally:
             pub.http_json, pub.urllib.request.urlopen = old_http, old_open
             for k in ("TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"):
                 os.environ.pop(k, None)
         self.assertEqual(res["publish_id"], "p1")
+        self.assertEqual(res["status"], "PUBLISH_COMPLETE")
         self.assertEqual(puts[0]["Content-range"], "bytes 0-999/1000")
         self.assertTrue(calls[2].endswith("/post/publish/video/init/"))
 

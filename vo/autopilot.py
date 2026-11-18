@@ -271,15 +271,32 @@ def _send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, toke
         rec["tiktok_status"] = "waiting" if limited else "unconfirmed"
         atomic_json(state_path, state)
         return {"status": "tiktok_inbox_limit" if limited else "tiktok_unconfirmed"}
-    if result.get("status") == "FAILED":
+    api_status = result.get("status")
+    confirmed = {"SEND_TO_USER_INBOX": "tiktok_inbox_delivered", "PUBLISH_COMPLETE": "tiktok_published"}
+    if cfg["tiktok"]["mode"] != "inbox":
+        confirmed.pop("SEND_TO_USER_INBOX")
+    submission = {**result, "at": iso(clock())}
+    manifest["tiktok_submission"] = submission
+    if api_status in confirmed:
+        rec["tiktok_status"] = "sent"
+        manifest.setdefault("published", {})["tiktok"] = submission
+        outcome = {"status": confirmed[api_status], "api_status": api_status}
+        if api_status == "PUBLISH_COMPLETE" and cfg["tiktok"]["mode"] == "direct":
+            outcome["visibility"] = cfg["tiktok"]["privacy_level"]
+    else:
         rec["tiktok_status"] = "unconfirmed"
-        atomic_json(state_path, state)
-        return {"status": "tiktok_failed"}
-    rec["tiktok_status"] = "sent"
-    manifest.setdefault("published", {})["tiktok"] = {**result, "at": iso(clock())}
+        if api_status == "FAILED":
+            outcome = {"status": "tiktok_failed", "api_status": api_status}
+            reason = result.get("fail_reason")
+            if isinstance(reason, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,79}", reason):
+                outcome["reason"] = reason
+        elif api_status in {"PROCESSING_UPLOAD", "PROCESSING_DOWNLOAD"}:
+            outcome = {"status": "tiktok_processing", "api_status": api_status}
+        else:
+            outcome = {"status": "tiktok_unconfirmed"}
     atomic_json(video.parent / "manifest.json", manifest)
     atomic_json(state_path, state)
-    return {"status": "tiktok_inbox_accepted", "api_status": result.get("status")}
+    return outcome
 
 
 def _send_youtube(video, manifest, cfg, mode, state, state_path, rec, clock, token, channel, upload):

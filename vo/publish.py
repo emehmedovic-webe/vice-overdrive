@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.request
 from pathlib import Path
 
@@ -123,6 +124,7 @@ def youtube_upload(video: Path, body: dict, token: str) -> str:
 TT_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 TT_API = "https://open.tiktokapis.com/v2/post/publish"
 TT_MAX_SINGLE_CHUNK = 64 * 1024 * 1024
+TT_STATUS_DELAYS = (0, 2, 5, 10, 20)
 
 
 def tiktok_init_body(m: dict, cfg: dict, video_size: int, creator: dict | None = None) -> dict:
@@ -233,8 +235,22 @@ def tiktok_upload(video: Path, m: dict, cfg: dict, token: str) -> dict:
         "Content-Range": f"bytes 0-{size - 1}/{size}"})
     with urllib.request.urlopen(put, timeout=600):
         pass
-    status = _tt_call("status/fetch/", token, {"publish_id": init["publish_id"]})
-    return {"publish_id": init["publish_id"], "status": status.get("status"), "mode": cfg["tiktok"]["mode"]}
+    publish_id = init["publish_id"]
+    result = {"publish_id": publish_id, "status": None, "mode": cfg["tiktok"]["mode"]}
+    for delay in TT_STATUS_DELAYS:
+        if delay:
+            time.sleep(delay)
+        try:
+            status = _tt_call("status/fetch/", token, {"publish_id": publish_id})
+        except (OSError, RuntimeError, KeyError, ValueError):
+            # Die Videodaten wurden schon gesendet. Bei einem Statusfehler nicht erneut hochladen.
+            continue
+        result["status"] = status.get("status")
+        if result["status"] in {"SEND_TO_USER_INBOX", "PUBLISH_COMPLETE", "FAILED"}:
+            if result["status"] == "FAILED":
+                result["fail_reason"] = status.get("fail_reason")
+            break
+    return result
 
 
 # ---------- Ablauf ----------
