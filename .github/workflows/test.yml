@@ -14,7 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ffmpeg + Schrift installieren (nur im Runner)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+        # apt-get update hing hier zweimal 15 Minuten ohne Ausgabe: mit Zeitlimit, Paketlisten notfalls vom Image.
+        run: |
+          sudo timeout 180 apt-get update -qq -o Acquire::Retries=3 -o Acquire::http::Timeout=20 || echo "apt-get update übersprungen"
+          sudo timeout 600 apt-get install -y -qq -o Acquire::Retries=3 ffmpeg fonts-dejavu-core
       - name: Original-Demo (VICE-OVERDRIVE-0EUR.py)
         run: python3 VICE-OVERDRIVE-0EUR.py --out vo-demo
       - name: Unit-Tests (offline, ohne Secrets)
