@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VICE OVERDRIVE Creator Studio</title>
+<meta name="description" content="Preview your own gaming clips, write a caption and choose when to share to TikTok.">
+<link rel="stylesheet" href="/styles.css">
+<script defer src="/app.js"></script>
+</head>
+<body>
+<header class="mast">
+  <a href="/" class="wordmark">VICE OVERDRIVE <span>STUDIO</span></a>
+  <nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a></nav>
+</header>
+<main>
+  <section class="intro">
+    <p class="label">CREATOR STUDIO</p>
+    <h1>Your best play.<br>Your call to post.</h1>
+    <p>Preview an original gaming clip, write your caption and choose how to share it with your TikTok audience.</p>
+    <div class="connection">
+      <a class="button secondary" href="/auth/login" id="connect">Connect TikTok</a>
+      <form method="post" action="/api/logout" id="logout" hidden><button class="secondary">Disconnect here</button></form>
+      <p id="account" role="status">Checking TikTok connection…</p>
+    </div>
+  </section>
+  <form id="editor" class="editor">
+    <section class="panel" aria-labelledby="preview-title">
+      <h2 id="preview-title">1. Preview your clip</h2>
+      <label for="clip">Original MP4, up to 24 MiB</label>
+      <input id="clip" type="file" accept="video/mp4,.mp4">
+      <p id="clip-info" class="hint" role="status">The preview stays in your browser until you choose to send the clip.</p>
+      <div class="preview">
+        <video controls playsinline preload="metadata" id="preview" aria-label="Selected clip" hidden></video>
+        <p id="empty-preview">Choose a clip to see it here.</p>
+      </div>
+      <label class="check"><input id="owned" type="checkbox"> This is my original content and I have the rights to share it.</label>
+    </section>
+    <section class="panel" aria-labelledby="settings-title">
+      <h2 id="settings-title">2. Write and review</h2>
+      <label for="caption">Caption and hashtags</label>
+      <textarea id="caption" rows="5" maxlength="2200" placeholder="What happens in this clip? Add relevant hashtags if you like."></textarea>
+      <p id="count" class="hint">0 / 2200</p>
+      <label for="visibility">Who can watch this video?</label>
+      <select id="visibility" required disabled><option value="">Choose visibility</option></select>
+      <fieldset id="interactions" disabled>
+        <legend>Allow viewers to</legend>
+        <label class="check"><input id="comments" type="checkbox"> Comment</label>
+        <label class="check"><input id="duet" type="checkbox"> Duet</label>
+        <label class="check"><input id="stitch" type="checkbox"> Stitch</label>
+      </fieldset>
+      <fieldset id="disclosures" disabled>
+        <legend>Content disclosure</legend>
+        <label class="check"><input id="commercial" type="checkbox"> This post promotes a brand, product or service</label>
+        <div id="brand-options" hidden>
+          <label class="check"><input id="ownBrand" type="checkbox"> Your brand</label>
+          <label class="check"><input id="thirdParty" type="checkbox"> Branded content for a third party</label>
+          <p id="disclosure-label" class="hint"></p>
+        </div>
+      </fieldset>
+      <p class="hint">TikTok may take a few minutes to process the video before it appears on your profile.</p>
+      <label class="check consent"><input id="consent" type="checkbox" disabled>
+        <span>By posting, you agree to TikTok’s <span id="brand-consent" hidden><a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noopener noreferrer">Branded Content Policy</a> and </span><a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener noreferrer">Music Usage Confirmation</a>.</span>
+      </label>
+      <button type="submit" id="publish" disabled>Post to TikTok</button>
+      <button type="button" class="secondary" id="check-status" hidden>Check TikTok status</button>
+      <p id="post-status" class="hint" role="status" aria-live="polite"></p>
+    </section>
+  </form>
+</main>
+<footer>VICE OVERDRIVE Creator Studio · For creators sharing their own clips</footer>
+</body>
+</html>
