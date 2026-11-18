@@ -70,8 +70,6 @@ jobs:
           VO_ACTIONS_UPLOAD: "1"
           YOUTUBE_MODE: ${{ inputs.youtube || vars.VO_YOUTUBE_MODE || 'public' }}
           MAX_UPLOADS: ${{ inputs.max_uploads || '4' }}
-          # Manuell gestartete Läufe sind gewollt und warten nicht auf die 30-Minuten-Pause.
-          MIN_GAP: ${{ github.event_name == 'workflow_dispatch' && '0' || '30' }}
           TIKTOK_INBOX: ${{ github.event_name == 'schedule' && (vars.VO_TIKTOK_INBOX || 'true') || (inputs.tiktok_inbox && 'true' || 'false') }}
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
@@ -84,6 +82,9 @@ jobs:
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
         run: |
           export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
+          # Manuell gestartete Läufe sind gewollt und warten nicht auf die 30-Minuten-Pause.
+          MIN_GAP=30
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then MIN_GAP=0; fi
           extra=""
           if [ "$TIKTOK_INBOX" = "true" ]; then extra="--tiktok-inbox"; fi
           python3 -m vo autopilot --text-source files --youtube "$YOUTUBE_MODE" $extra \
