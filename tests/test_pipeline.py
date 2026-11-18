@@ -683,6 +683,35 @@ class AutopilotTests(unittest.TestCase):
 
 
 class TextAndRightsTests(unittest.TestCase):
+    def test_radar_texts_are_distinct_without_a_repeated_title_or_stock_question(self):
+        topics = ("Erste Polizeiverfolgung nachts", "Monte hat kein Aim",
+                  "Schräges Radio im Auto", "xQc klaut ein Auto",
+                  "Monte startet das Spiel", "NPC kontert im Dialog",
+                  "Monte fährt durch den Ort", "Sieht richtig geil aus")
+        bodies = set()
+        for topic in topics:
+            with self.subTest(topic=topic):
+                texts = build_texts({
+                    "topic": topic, "hook": topic, "title": topic, "game": "gta6",
+                    "streamer": "montanablack88",
+                    "description": f"{topic}\nOriginalclip: https://clips.twitch.tv/Test",
+                }, CFG)
+                caption = texts["tiktok"]["caption"]
+                description = texts["youtube"]["description"]
+                body = caption.split("\n", 1)[0]
+                self.assertIn(len(body.split()), range(20, 31))
+                self.assertNotIn("Was hättet ihr gemacht", caption)
+                self.assertLessEqual(caption.count(topic), 1)
+                self.assertLessEqual(description.count(topic), 1)
+                self.assertIn("Originalclip: https://clips.twitch.tv/Test", description)
+                self.assertIn("https://www.twitch.tv/montanablack88", caption)
+                self.assertEqual(len(texts["tiktok"]["hashtags"]), 5)
+                self.assertEqual(len(texts["youtube"]["tags"]), 8)
+                self.assertIn("#GTA6", caption)
+                self.assertNotIn("#GTAV ", caption)
+                bodies.add(body)
+        self.assertEqual(len(bodies), len(topics))
+
     def test_texts_are_german_and_separate(self):
         t = build_texts({"topic": "Polizeiflucht am Strand", "keywords": ["Vice City"]}, CFG)
         self.assertTrue(t["youtube"]["title"].endswith("#Shorts"))
