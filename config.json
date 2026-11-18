@@ -48,6 +48,15 @@
         "required_tags": [],
         "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: wird über youtube_handle gesucht. Quellenangabe verweist auf YouTube.",
         "youtube_handle": "@IShowSpeed"
+      },
+      {
+        "twitch_login": "trymacs",
+        "name": "Trymacs",
+        "active": true,
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
+        "required_tags": [],
+        "notes": "Deutscher Streamer, Clips laut Enis freigegeben (Bestätigung im Projekt-Thread 2026-11-18).",
+        "youtube_handle": "@Trymacs"
       }
     ]
   },
