@@ -210,7 +210,7 @@ FINAL = {"attempted", "sent", "unconfirmed", "exported"}
 
 def load_state(state_path: Path, known: Path | None = None) -> dict:
     """Zustand lesen und mit known_clips.json zusammenführen (Schutz vor Doppel-Uploads)."""
-    state = load_state(state_path)
+    state = read_json(state_path, {"last_attempt": None, "clips": {}})
     from .common import ROOT
     known = known or ROOT / "known_clips.json"
     for sid, entry in read_json(known, {"clips": {}}).get("clips", {}).items():
