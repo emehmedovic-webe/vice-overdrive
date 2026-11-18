@@ -82,10 +82,13 @@ jobs:
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
         run: |
           export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
+          # Manuell gestartete Läufe sind gewollt und warten nicht auf die 30-Minuten-Pause.
+          MIN_GAP=30
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then MIN_GAP=0; fi
           extra=""
           if [ "$TIKTOK_INBOX" = "true" ]; then extra="--tiktok-inbox"; fi
           python3 -m vo autopilot --text-source files --youtube "$YOUTUBE_MODE" $extra \
-            --max-uploads "$MAX_UPLOADS" --min-gap-minutes 30
+            --max-uploads "$MAX_UPLOADS" --min-gap-minutes "$MIN_GAP"
       - name: Zustand sichern
         if: always()
         uses: actions/cache/save@v4
