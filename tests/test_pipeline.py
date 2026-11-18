@@ -58,6 +58,8 @@ class FakeTwitch:
             if params.get("broadcaster_id") == "2":
                 return {"data": [clip("b", "2", v["b"], video="v2", game="1234567"),
                                  clip("d", "2", v["d"], video="v8")]}
+            if params.get("broadcaster_id") in ("4", "5"):
+                return {"data": []}
             if params.get("broadcaster_id") == "3":
                 return {"data": [clip("c", "3", v["c"], video="v7", lang="en")]}
             return {"data": []}
@@ -164,6 +166,10 @@ class ClipperProgramTests(unittest.TestCase):
         self.assertIn("montepartner", t["youtube"]["tags"])
 
     def test_publish_blocks_clip_without_credit(self):
+        cfg = self._cfg()
+        t = build_texts({**self._brief("ishowspeed"), "topic": "Speed in GTA"}, cfg)
+        self.assertIn("youtube.com/@IShowSpeed", t["tiktok"]["caption"])
+        self.assertIn("https://www.youtube.com/@IShowSpeed", t["youtube"]["description"])
         m = {"short_id": "c", "rights": {"type": "clipper_program"}, "texts": {}, "published": {}}
         self.assertIn("Quellenangabe", blocked_reason(m, "youtube", {"youtube": {"approved": True}}))
         m["credit"] = "MontanaBlack – twitch.tv/montanablack88"

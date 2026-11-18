@@ -27,6 +27,23 @@
         "proof": "",
         "required_tags": [],
         "notes": "Clipper-Programm laut Enis im Stream angesagt. Beleg fehlt noch."
+      },
+      {
+        "twitch_login": "xqc",
+        "name": "xQc",
+        "active": true,
+        "proof": "",
+        "required_tags": [],
+        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt auch auf Kick; das Radar sieht nur Twitch. Beleg fehlt noch."
+      },
+      {
+        "twitch_login": "ishowspeed",
+        "name": "IShowSpeed",
+        "channel_url": "https://www.youtube.com/@IShowSpeed",
+        "active": true,
+        "proof": "",
+        "required_tags": [],
+        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: das Twitch-Radar findet hier kaum/keine Clips, Material per Brief einbringen. Quellenangabe verweist auf YouTube. Beleg fehlt noch."
       }
     ]
   },

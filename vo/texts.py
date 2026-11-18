@@ -80,7 +80,7 @@ def build_texts(brief: dict, cfg: dict) -> dict:
     if streamer:
         url = allowlist.channel_url(streamer)
         assert url in texts["youtube"]["description"], "Quellenangabe fehlt in YouTube-Beschreibung"
-        assert streamer["twitch_login"].lower() in texts["tiktok"]["caption"], "Quellenangabe fehlt in TikTok-Caption"
+        assert allowlist.short_url(streamer) in texts["tiktok"]["caption"], "Quellenangabe fehlt in TikTok-Caption"
     return texts
 
 

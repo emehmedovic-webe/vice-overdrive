@@ -24,9 +24,14 @@ def find(cfg: dict, login: str | None) -> dict | None:
 
 
 def channel_url(entry: dict) -> str:
-    return f"https://www.twitch.tv/{entry['twitch_login'].lower()}"
+    """Hauptkanal des Streamers; channel_url im Eintrag überschreibt Twitch (z. B. YouTube)."""
+    return entry.get("channel_url") or f"https://www.twitch.tv/{entry['twitch_login'].lower()}"
+
+
+def short_url(entry: dict) -> str:
+    return channel_url(entry).split("://", 1)[-1].removeprefix("www.")
 
 
 def credit_line(entry: dict) -> str:
     """Quellenangabe, die in jede Beschreibung/Caption kommt."""
-    return f"{entry['name']} – twitch.tv/{entry['twitch_login'].lower()}"
+    return f"{entry['name']} – {short_url(entry)}"
