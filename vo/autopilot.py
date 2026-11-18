@@ -249,10 +249,23 @@ def _send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, toke
     try:
         result = upload(video, manifest, cfg, access)
     except (OSError, RuntimeError, KeyError, ValueError) as exc:
-        limited = "spam_risk_too_many_pending_share" in str(exc)
+        detail = str(exc)
+        limited = "spam_risk_too_many_pending_share" in detail
         rec["tiktok_status"] = "waiting" if limited else "unconfirmed"
         atomic_json(state_path, state)
-        return {"status": "tiktok_inbox_limit" if limited else "tiktok_unconfirmed"}
+        outcome = {"status": "tiktok_inbox_limit" if limited else "tiktok_unconfirmed"}
+        # Nur bekannte öffentliche API-Codes und die Statusnummer, niemals die Antwort oder Upload-URL.
+        code = re.search(
+            r"\b(unaudited_client_can_only_post_to_private_accounts|access_token_invalid|"
+            r"scope_not_authorized|privacy_level_option_mismatch|spam_risk_too_many_pending_share|"
+            r"spam_risk_too_many_posts|spam_risk_user_banned_from_posting|reached_active_user_cap|"
+            r"rate_limit_exceeded|invalid_param)\b", detail)
+        if code:
+            outcome["reason"] = code.group(1)
+        http = re.search(r"\bHTTP(?: Error)? ([45][0-9]{2})\b", detail)
+        if http:
+            outcome["http_status"] = int(http.group(1))
+        return outcome
     api_status = result.get("status")
     confirmed = {"SEND_TO_USER_INBOX": "tiktok_inbox_delivered", "PUBLISH_COMPLETE": "tiktok_published"}
     if cfg["tiktok"]["mode"] != "inbox":
