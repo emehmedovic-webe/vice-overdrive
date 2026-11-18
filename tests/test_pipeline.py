@@ -470,6 +470,16 @@ class AutopilotTests(unittest.TestCase):
                                clock=lambda: NOW)
         self.assertEqual(result["status"], "no_suitable_clip")
 
+    def test_blocked_titles_are_never_cut(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            item = {**self._item(), "title": "18+ GTA 6 First Nude Showering Scene"}
+            cfg = {**CFG, "gta_filter": {**CFG["gta_filter"], "title_blocklist": ["nude"]}}
+            with patch("vo.autopilot.probe"), patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
+                result = run_cycle(cfg, Path(tmp), radar=lambda *a: {"top": [item], "gta_categories": GAMES},
+                                   render=lambda *a, **k: self.fail("darf nicht geschnitten werden"),
+                                   clock=lambda: NOW)
+        self.assertEqual(result["status"], "no_suitable_clip")
+
     def test_file_mode_skips_missing_or_conflicting_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             data = Path(tmp)

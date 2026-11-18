@@ -57,6 +57,7 @@
       "Grand Theft Auto VI"
     ],
     "games": ["gta6"],
+    "title_blocklist": ["18+", "nsfw", "nude", "naked", "nackt", "sex", "porn", "test clip"],
     "_hinweis": "Nur GTA VI (Entscheidung Enis 2026-11-18). GTA V/RP wieder zulassen: Kategorie \"Grand Theft Auto V\" und \"gta5\" ergänzen."
   },
   "language": "de",
