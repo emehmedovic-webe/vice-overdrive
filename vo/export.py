@@ -10,7 +10,7 @@ import re
 import shutil
 from pathlib import Path
 
-from .autopilot import _same_moment, _source_ids, atomic_json, lock
+from .autopilot import _same_moment, _source_ids, atomic_json, load_state, lock
 from .clip_game import GAME_NAMES, clip_game
 from .common import iso, now_utc, read_json
 from .radar_clips import ClipError, prepare_clips, source_for
@@ -30,7 +30,7 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
     blocked = [w.casefold() for w in gfilter.get("title_blocklist", [])]
     exported: list[dict] = []
     with lock(root / "state" / "run.lock"):
-        state = read_json(state_path, {"last_attempt": None, "clips": {}})
+        state = load_state(state_path)
         old = state["clips"]
         report = radar(cfg, root / "state" / "radar_state.json", root / "radar")
         for clip in report["top"]:

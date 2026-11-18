@@ -205,6 +205,24 @@ def _same_moment(clip: dict, prior: dict, window: float) -> bool:
                 and abs(now_offset - old_offset) <= window)
 
 
+FINAL = {"attempted", "sent", "unconfirmed", "exported"}
+
+
+def load_state(state_path: Path, known: Path | None = None) -> dict:
+    """Zustand lesen und mit known_clips.json zusammenführen (Schutz vor Doppel-Uploads)."""
+    state = read_json(state_path, {"last_attempt": None, "clips": {}})
+    from .common import ROOT
+    known = known or ROOT / "known_clips.json"
+    for sid, entry in read_json(known, {"clips": {}}).get("clips", {}).items():
+        merged = {**entry, **state["clips"].get(sid, {})}
+        for key in ("status", "tiktok_status"):
+            if entry.get(key) in FINAL and merged.get(key) not in FINAL:
+                merged[key] = entry[key]
+        merged["source_ids"] = sorted(set(merged.get("source_ids", [])) | set(entry.get("source_ids", [])))
+        state["clips"][sid] = merged
+    return state
+
+
 def tiktok_local_token(data: Path, account: str, mode: str = "inbox") -> str:
     """Nur lokal erneuern: TikTok kann einen neuen Refresh-Token zurückgeben."""
     path = data / "state" / "tiktok-token.json"
@@ -310,7 +328,7 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
     if not (tt["mode"] == "inbox" or (tt["mode"] == "direct" and tt.get("privacy_level") == "SELF_ONLY")):
         raise ValueError("Autopilot erlaubt TikTok nur als Inbox-Entwurf oder Direct Post mit SELF_ONLY.")
     state_path = data / "state" / "autopilot.json"
-    state = read_json(state_path, {"last_attempt": None, "clips": {}})
+    state = load_state(state_path)
     old = state["clips"]
     if live and state.get("last_attempt"):
         remaining = min_gap - (clock() - parse_iso(state["last_attempt"]))
