@@ -157,7 +157,7 @@ class RadarTests(unittest.TestCase):
             r = run_radar(CFG, Path(tmp) / "s.json", Path(tmp) / "r", client=Helix("i", "s", fetch=FakeTwitch()),
                           now=NOW, youtube=YouTubeReader(api_key="k", fetch=fake_yt))
             yt = [c for c in r["top"] if c["platform"] == "youtube"]
-            self.assertEqual({c["id"] for c in yt}, {"yt:UUIShowSpeed1", "yt:UUMontanaBlack1", "yt:UUEligella1"})
+            self.assertEqual({c["id"] for c in yt}, {"yt:UUIShowSpeed1", "yt:UUMontanaBlack1", "yt:UUEligella1", "yt:UUTrymacs1"})
             self.assertEqual(r["top"][0]["id"], "yt:UUIShowSpeed1")   # meiste Aufrufe vorn
             self.assertEqual(r["top"][0]["streamer_login"], "ishowspeed")
             self.assertEqual(r["youtube"]["missing_handles"], ["@xQc"])
@@ -215,7 +215,7 @@ class RadarClipTests(unittest.TestCase):
 
     def test_youtube_approval_and_canonical_url(self):
         cfg = copy.deepcopy(CFG)
-        cfg["clip_allowlist"]["streamers"][-1]["youtube_download_proof"] = "Testbeleg – keine echte Freigabe"
+        next(e for e in cfg["clip_allowlist"]["streamers"] if e["twitch_login"] == "ishowspeed")["youtube_download_proof"] = "Testbeleg – keine echte Freigabe"
         item = {**self._youtube(), "url": "https://youtu.be/AbCd0123_-x?list=ignored"}
         sid, url, streamer = source_for(item, cfg)
         self.assertEqual((sid, url, streamer),
@@ -271,7 +271,7 @@ class RadarClipTests(unittest.TestCase):
     def test_radar_clips_render_and_hand_off_offline(self):
         cfg = copy.deepcopy(CFG)
         cfg["render"].update(width=720, height=1280, max_seconds=1)
-        cfg["clip_allowlist"]["streamers"][-1]["youtube_download_proof"] = "Nur Test"
+        next(e for e in cfg["clip_allowlist"]["streamers"] if e["twitch_login"] == "ishowspeed")["youtube_download_proof"] = "Nur Test"
         report = {"top": [self._twitch(), self._youtube()]}
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
