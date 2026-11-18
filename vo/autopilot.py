@@ -326,6 +326,11 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
         except ClipError:
             continue
         game = clip_game(clip, report.get("gta_categories", {}))
+        if game not in cfg.get("gta_filter", {}).get("games", GAME_NAMES):
+            game = None
+        title = clip.get("title", "").casefold()
+        if any(w.casefold() in title for w in cfg.get("gta_filter", {}).get("title_blocklist", [])):
+            continue  # z. B. Nacktszenen: Risiko für Kanal-Verwarnungen
         previous = old.get(sid, {})
         final_states = {"attempted", "sent", "unconfirmed"}
         wants_youtube = mode != "off" and previous.get("status") not in final_states

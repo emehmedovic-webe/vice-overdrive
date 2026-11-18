@@ -54,10 +54,11 @@
   "gta_filter": {
     "enabled": true,
     "categories": [
-      "Grand Theft Auto V",
       "Grand Theft Auto VI"
     ],
-    "_hinweis": "Nur Clips aus diesen Twitch-Kategorien (GTA RP läuft unter Grand Theft Auto V)."
+    "games": ["gta6"],
+    "title_blocklist": ["18+", "nsfw", "nude", "naked", "nackt", "sex", "porn", "test clip"],
+    "_hinweis": "Nur GTA VI (Entscheidung Enis 2026-11-18). GTA V/RP wieder zulassen: Kategorie \"Grand Theft Auto V\" und \"gta5\" ergänzen."
   },
   "language": "de",
   "radar": {

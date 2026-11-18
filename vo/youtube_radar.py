@@ -92,7 +92,8 @@ def find_videos(cfg: dict, reader: YouTubeReader, since, *, gta_only: bool = Tru
                 continue
             if parse_iso(sn["publishedAt"]) < since:
                 continue
-            if gta_only and not is_gta(v):
+            if gta_only and (not is_gta(v) or youtube_game(sn) not in
+                             cfg.get("gta_filter", {}).get("games", ("gta5", "gta6"))):
                 skipped += 1
                 continue
             dur = _seconds(v.get("contentDetails", {}).get("duration", ""))
