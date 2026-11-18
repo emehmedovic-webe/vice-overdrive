@@ -3,8 +3,10 @@
 Verwendet NUR Dateien, deren Rechte im Brief bestätigt sind:
   rights.type = "own"       → eigene Aufnahme
   rights.type = "licensed"  → schriftliche Freigabe, rights.proof verweist darauf
+  rights.type = "clipper_program" → Clip eines Streamers aus der Allowlist (config.json),
+                               dessen Clipper-Programm belegt ist (proof im Allowlist-Eintrag)
   rights.type = "synthetic" → technischer Test, wird nie veröffentlicht
-Twitch-Clips aus dem Radar sind KEINE gültige Quelle, solange keine Freigabe vorliegt.
+Twitch-Clips sind nur mit licensed + proof oder clipper_program gültig.
 """
 from __future__ import annotations
 
@@ -13,22 +15,32 @@ import shutil
 import subprocess
 from pathlib import Path
 
-ALLOWED_RIGHTS = {"own", "licensed", "synthetic"}
+from . import allowlist
+
+ALLOWED_RIGHTS = {"own", "licensed", "clipper_program", "synthetic"}
 
 
 class RightsError(RuntimeError):
     pass
 
 
-def check_rights(brief: dict) -> dict:
+def check_rights(brief: dict, cfg: dict | None = None) -> dict:
     rights = brief.get("rights") or {}
     kind = rights.get("type")
     if kind not in ALLOWED_RIGHTS:
-        raise RightsError(f"Kein Schnitt: rights.type muss own/licensed/synthetic sein, ist {kind!r}.")
+        raise RightsError(f"Kein Schnitt: rights.type muss {'/'.join(sorted(ALLOWED_RIGHTS))} sein, ist {kind!r}.")
     if kind == "licensed" and not rights.get("proof"):
         raise RightsError("Kein Schnitt: Für licensed fehlt rights.proof (z. B. Pfad/Link zur Freigabe).")
-    if "twitch.tv" in str(brief.get("source", "")) and kind != "licensed":
-        raise RightsError("Twitch-Material nur mit dokumentierter Freigabe (licensed + proof).")
+    if kind == "clipper_program":
+        entry = allowlist.find(cfg or {}, brief.get("streamer"))
+        if not entry or not entry.get("active", True):
+            raise RightsError(f"Kein Schnitt: Streamer {brief.get('streamer')!r} steht nicht (aktiv) in der Allowlist.")
+        if not entry.get("proof"):
+            raise RightsError(f"Kein Schnitt: Für {entry['name']} fehlt der Beleg (proof) in config.json "
+                              "→ z. B. VOD-Link mit Zeitstempel der Clipper-Ansage.")
+        rights = {**rights, "streamer": entry["twitch_login"].lower(), "proof": entry["proof"]}
+    if "twitch.tv" in str(brief.get("source", "")) and kind not in {"licensed", "clipper_program"}:
+        raise RightsError("Twitch-Material nur mit dokumentierter Freigabe (licensed + proof oder clipper_program).")
     return rights
 
 
@@ -98,7 +110,7 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
     for binary in ("ffmpeg", "ffprobe"):
         if not shutil.which(binary):
             raise SystemExit(f"{binary} fehlt.")
-    rights = check_rights(brief)
+    rights = check_rights(brief, cfg)
     r = cfg["render"]
     src = (base_dir / brief["source"]).resolve()
     if not src.exists():

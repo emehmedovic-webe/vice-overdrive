@@ -5,14 +5,21 @@ Nur Python-Standardbibliothek + ffmpeg. Auf dem Arbeits-Mac wird nichts installi
 
 ## Ablauf
 
-1. **Radar** `python -m vo radar` – sucht Clips bei den 5 Kanälen aus `config.json`
-   (montanablack88, eliasn97, trymacs, xrohat, gtasty) und in der Kategorie „Grand Theft Auto VI“
-   (nur Clips mit Sprache `de`). Fasst Duplikate zusammen (gleiche Clip-ID, gleiches VOD ±30 s,
+1. **Radar** `python -m vo radar` – sucht Clips **nur** bei den Streamern der Allowlist
+   (`config.json` → `clip_allowlist`, derzeit montanablack88, eligella, xrohat) und behält mit
+   `gta_filter` nur Clips aus „Grand Theft Auto V“ (inkl. GTA RP) und „Grand Theft Auto VI“.
+   Andere Kanäle und Spiele fallen raus. Logins, die Twitch nicht kennt, stehen oben im Bericht.
+   Fasst Duplikate zusammen (gleiche Clip-ID, gleiches VOD ±30 s,
    gleicher Kanal + gleicher Titel) und sortiert nach **Zuwachs der Aufrufe seit dem letzten Check**.
    Ergebnis: `data/radar/radar-*.md`. **Nur zum Entdecken** – es wird nichts heruntergeladen.
 2. **Brief** anlegen (Vorlage `briefs/BEISPIEL-eigene-aufnahme.json`): Quelldatei, Ausschnitt,
    Rechte (`own` oder `licensed` + `proof`), Thema, optional Hook, Untertitel (Liste oder .srt).
    Ohne bestätigte Rechte bricht der Schnitt ab. Twitch-Material nur mit dokumentierter Freigabe.
+   Für Clips aus einem Clipper-Programm: Vorlage `briefs/BEISPIEL-clipper-programm.json` mit
+   `"streamer": "<twitch_login>"` und `rights.type = "clipper_program"`. Geschnitten wird nur, wenn der
+   Streamer aktiv in der Allowlist steht **und** dort ein `proof` eingetragen ist (z. B. VOD-Link mit
+   Zeitstempel der Ansage oder Link zu den Programmregeln). Name + Twitch-Kanal und die
+   `required_tags` des Programms kommen automatisch in YouTube-Beschreibung und TikTok-Caption.
 3. **Schnitt** `python -m vo make briefs/<datei>.json` → `data/shorts/<id>/short.mp4`
    (1080×1920, H.264/AAC, 30 fps, max. 59 s, unscharfer Hintergrund, Hook oben, deutsche Untertitel
    eingebrannt) plus getrennte `youtube.txt` (Titel mit #Shorts, Beschreibung, Tags) und `tiktok.txt` (Caption + Hashtags).
@@ -47,6 +54,10 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
     ist jeder Post nur für dich sichtbar (`SELF_ONLY`) **und das Konto muss auf privat stehen**.
   - Benötigt öffentliche Seiten für die App-Anmeldung: `site/` (Start, Datenschutz, Nutzungsbedingungen, Callback).
 - **Twitch**: Clips dürfen entdeckt, aber nicht ohne Erlaubnis des Streamers weiterverwendet werden.
+  Clipper-Programme zahlen meist nur für **angemeldete** Konten und verlangen oft einen Pflicht-Tag
+  oder ein bestimmtes @ in der Caption. Regeln stehen meist im Discord des Streamers
+  (Kanäle wie `clip-program`) oder auf einer Clipping-Plattform – dort anmelden und die Regeln in
+  `notes`/`required_tags` übernehmen.
 
 ## GitHub Actions
 

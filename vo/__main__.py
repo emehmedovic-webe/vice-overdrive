@@ -30,7 +30,8 @@ def cmd_make(brief_path: Path, cfg: dict, shorts_root: Path) -> Path:
     manifest = {"short_id": short_id, "created_at": iso(now_utc()),
                 "synthetic": result["rights"]["type"] == "synthetic",
                 "source": brief["source"], "rights": result["rights"], "file": result["file"],
-                "video": result["video"], "texts": texts, "published": {}}
+                "video": result["video"], "texts": texts, "credit": texts.get("credit", ""),
+                "streamer": brief.get("streamer"), "published": {}}
     if brief.get("public_video_url"):
         manifest["public_video_url"] = brief["public_video_url"]
     write_json(out / "manifest.json", manifest)

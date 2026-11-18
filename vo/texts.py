@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import re
 
+from . import allowlist
+
 YT_TITLE_MAX = 100
 TIKTOK_CAPTION_MAX = 2200
 
@@ -35,8 +37,14 @@ def build_texts(brief: dict, cfg: dict) -> dict:
     hook = (brief.get("hook") or HOOK_TEMPLATES[sum(map(ord, topic)) % len(HOOK_TEMPLATES)]).strip()
     keywords = brief.get("keywords", [])
     credit = brief.get("credit", "").strip()
+    streamer = allowlist.find(cfg, brief.get("streamer"))
+    extra_tags = []
+    if streamer:
+        # Quellenangabe ist Pflicht: Streamer-Name + Kanal, plus Pflicht-Tags des Clipper-Programms.
+        credit = allowlist.credit_line(streamer)
+        extra_tags = [t if t.startswith(("#", "@")) else "#" + t for t in streamer.get("required_tags", [])]
 
-    yt_tags = _uniq(tcfg["base_hashtags_youtube"] + [_tag(k) for k in keywords])[:6]
+    yt_tags = _uniq(extra_tags + tcfg["base_hashtags_youtube"] + [_tag(k) for k in keywords])[:max(6, len(extra_tags) + 3)]
     title = brief.get("title") or f"{topic}: {hook}"
     title = re.sub(r"\s+", " ", title).strip()
     suffix = " #Shorts"
@@ -44,26 +52,35 @@ def build_texts(brief: dict, cfg: dict) -> dict:
         title = title[: YT_TITLE_MAX - len(suffix) - 1].rstrip() + "…"
     title += suffix
     desc_lines = [hook, "", brief.get("description", f"{topic} – kurz und knapp auf Deutsch.")]
-    if credit:
+    if streamer:
+        desc_lines += ["", f"🎥 Clip von {streamer['name']}: {allowlist.channel_url(streamer)}"]
+    elif credit:
         desc_lines += ["", f"Material: {credit}"]
     desc_lines += ["", "Mehr GTA-6-Shorts: @viceoverdrive6", "", " ".join(yt_tags)]
     description = "\n".join(desc_lines)
 
-    tt_tags = _uniq(tcfg["base_hashtags_tiktok"] + [_tag(k).lower() for k in keywords])[:8]
+    tt_tags = _uniq(extra_tags + tcfg["base_hashtags_tiktok"] + [_tag(k).lower() for k in keywords])[:max(8, len(extra_tags) + 4)]
     caption_core = brief.get("caption") or f"{hook} {topic} 👀 Was hättet ihr gemacht?"
     caption = f"{caption_core}"
-    if credit:
+    if streamer:
+        caption += f"\n🎥 Clip: {credit}"
+    elif credit:
         caption += f" (Material: {credit})"
     caption += "\n" + " ".join(tt_tags)
     caption = caption[:TIKTOK_CAPTION_MAX]
 
     texts = {
         "hook": hook,
+        "credit": credit,
         "youtube": {"title": title, "description": description,
                     "tags": [t.lstrip("#") for t in yt_tags]},
         "tiktok": {"caption": caption, "hashtags": tt_tags},
     }
     validate_texts(texts)
+    if streamer:
+        url = allowlist.channel_url(streamer)
+        assert url in texts["youtube"]["description"], "Quellenangabe fehlt in YouTube-Beschreibung"
+        assert streamer["twitch_login"].lower() in texts["tiktok"]["caption"], "Quellenangabe fehlt in TikTok-Caption"
     return texts
 
 

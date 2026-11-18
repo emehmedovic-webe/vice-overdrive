@@ -1,14 +1,43 @@
 {
   "youtube_channel": "@viceoverdrive6",
   "tiktok_account": "@viceoverdrive",
-  "twitch_watchlist": [
-    "montanablack88",
-    "eliasn97",
-    "trymacs",
-    "xrohat",
-    "gtasty"
-  ],
-  "discovery_category": "Grand Theft Auto VI",
+  "clip_allowlist": {
+    "_hinweis": "Nur Clips dieser Kanäle werden gesucht und dürfen geschnitten werden. active=false = nur vorgemerkt. proof = Beleg der Clipper-Freigabe (VOD-Link + Zeitstempel der Ansage, Discord-Link o. Ä.). Ohne proof kein Schnitt. required_tags = Pflicht-Tags aus den Regeln des Clipper-Programms, landen automatisch in jeder Caption.",
+    "streamers": [
+      {
+        "twitch_login": "montanablack88",
+        "name": "MontanaBlack",
+        "active": true,
+        "proof": "",
+        "required_tags": [],
+        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe). Beleg fehlt noch."
+      },
+      {
+        "twitch_login": "eligella",
+        "name": "Eligella",
+        "active": true,
+        "proof": "",
+        "required_tags": [],
+        "notes": "Clipper-Programm laut Enis im Stream angesagt. Beleg fehlt noch."
+      },
+      {
+        "twitch_login": "xrohat",
+        "name": "Rohat",
+        "active": true,
+        "proof": "",
+        "required_tags": [],
+        "notes": "Clipper-Programm laut Enis im Stream angesagt. Beleg fehlt noch."
+      }
+    ]
+  },
+  "gta_filter": {
+    "enabled": true,
+    "categories": [
+      "Grand Theft Auto V",
+      "Grand Theft Auto VI"
+    ],
+    "_hinweis": "Nur Clips aus diesen Twitch-Kategorien (GTA RP läuft unter Grand Theft Auto V)."
+  },
   "language": "de",
   "radar": {
     "lookback_hours_first_run": 48,
