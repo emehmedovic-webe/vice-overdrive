@@ -1,8 +1,9 @@
-"""Twitch-Radar: findet interessante deutschsprachige GTA-VI-Clips.
+"""Twitch-Radar: findet GTA-Clips der Streamer aus der Allowlist (config.json → clip_allowlist).
 
 Nur zum ENTDECKEN. Es werden keine Clips heruntergeladen oder geschnitten.
-Was davon in ein Short darf, entscheidet eine Freigabe des Rechteinhabers
-(siehe briefs/ und rights-Feld).
+Gesucht wird ausschließlich bei Kanälen der Allowlist; mit gta_filter bleiben nur
+Clips aus den GTA-Kategorien (GTA V inkl. RP, GTA VI). Clips anderer Kanäle oder
+Spiele werden verworfen und nur gezählt.
 
 Rangfolge: Zuwachs der Aufrufe seit dem letzten Check (view_delta),
 bei Gleichstand die Aufrufe pro Stunde (velocity).
@@ -13,6 +14,7 @@ import re
 from datetime import timedelta
 from pathlib import Path
 
+from . import allowlist
 from .common import http_json, iso, now_utc, parse_iso, read_json, secret, write_json
 
 HELIX = "https://api.twitch.tv/helix"
@@ -52,6 +54,12 @@ class Helix:
     def game_id(self, name: str) -> str | None:
         data = self.get("games", {"name": name})
         return data[0]["id"] if data else None
+
+    def game_ids(self, names: list[str]) -> dict[str, str]:
+        """Kategorie-Name → Twitch-ID (unbekannte Namen fehlen im Ergebnis)."""
+        if not names:
+            return {}
+        return {g["name"]: g["id"] for g in self.get("games", [("name", n) for n in names])}
 
     def clips(self, *, broadcaster_id=None, game_id=None, started_at, ended_at, first=50):
         params = {"started_at": started_at, "ended_at": ended_at, "first": first}
@@ -129,18 +137,31 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
     window_start = min(since, now - timedelta(days=7)) if state.get("clips") else since
     started_at, ended_at = iso(window_start), iso(now)
 
+    wanted = allowlist.logins(cfg)
+    if not wanted:
+        raise SystemExit("clip_allowlist in config.json ist leer – keine Kanäle zum Suchen.")
+    users = client.users(wanted)
+    missing_logins = sorted(set(wanted) - {u["login"].lower() for u in users})
+
+    gcfg = cfg.get("gta_filter", {})
+    gta_ids: dict[str, str] = {}
+    if gcfg.get("enabled"):
+        gta_ids = client.game_ids(gcfg.get("categories", []))
+        if not gta_ids:
+            raise SystemExit("gta_filter: keine der Kategorien bei Twitch gefunden: "
+                             f"{gcfg.get('categories')}")
+    allowed_games = set(gta_ids.values())
+
     found: list[dict] = []
-    for user in client.users(cfg["twitch_watchlist"]):
+    skipped_not_gta = 0
+    for user in users:
         for clip in client.clips(broadcaster_id=user["id"], started_at=started_at,
                                  ended_at=ended_at, first=rcfg["max_clips_per_source"]):
-            found.append({**clip, "found_via": [f"watchlist:{user['login']}"]})
-
-    gid = client.game_id(cfg["discovery_category"])
-    if gid:
-        for clip in client.clips(game_id=gid, started_at=started_at, ended_at=ended_at,
-                                 first=100):
-            if clip.get("language") == cfg["language"]:
-                found.append({**clip, "found_via": ["kategorie:de"]})
+            if allowed_games and clip.get("game_id") not in allowed_games:
+                skipped_not_gta += 1
+                continue
+            found.append({**clip, "found_via": [f"allowlist:{user['login'].lower()}"],
+                          "streamer_login": user["login"].lower()})
 
     unique = dedupe(found, rcfg["dedupe_window_seconds"])
     ranked = [c for c in rank(unique, state, now) if c["view_delta"] >= rcfg["min_view_delta"]]
@@ -150,12 +171,15 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
         "checked_at": iso(now),
         "previous_check": state.get("last_check"),
         "window": [started_at, ended_at],
-        "game_id": gid,
+        "allowlist": wanted,
+        "missing_logins": missing_logins,
+        "gta_categories": gta_ids,
+        "skipped_not_gta": skipped_not_gta,
         "raw_found": len(found),
         "after_dedupe": len(unique),
-        "hinweis": "Nur zum Entdecken. Clips nicht herunterladen oder verwenden ohne Freigabe des Rechteinhabers.",
+        "hinweis": "Nur Kanäle aus der Allowlist. Schnitt erst, wenn für den Streamer ein Beleg (proof) in config.json steht.",
         "top": [{k: c.get(k) for k in (
-            "id", "url", "broadcaster_name", "title", "language", "view_count", "view_delta",
+            "id", "url", "broadcaster_name", "streamer_login", "game_id", "title", "language", "view_count", "view_delta",
             "velocity_per_hour", "is_new", "created_at", "duration", "found_via", "duplicates")}
             for c in top],
     }
@@ -172,7 +196,10 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
     write_json(out_dir / f"radar-{stamp}.json", report)
     lines = [f"# Twitch-Radar {report['checked_at']}", "",
              f"Seit letztem Check: {report['previous_check'] or 'erster Lauf'} · "
-             f"{report['raw_found']} Treffer → {report['after_dedupe']} nach Duplikat-Abgleich", "",
+             f"{report['raw_found']} GTA-Treffer → {report['after_dedupe']} nach Duplikat-Abgleich · "
+             f"{report['skipped_not_gta']} Clips aus anderen Spielen verworfen", "",
+             f"Allowlist: {', '.join(wanted)}"
+             + (f" · **bei Twitch nicht gefunden: {', '.join(missing_logins)}**" if missing_logins else ""), "",
              "> " + report["hinweis"], "",
              "| # | Zuwachs | /h | Aufrufe | Kanal | Titel | Quelle |", "|---|---|---|---|---|---|---|"]
     for i, c in enumerate(report["top"], 1):

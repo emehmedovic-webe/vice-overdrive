@@ -24,8 +24,11 @@ def load_short(short_dir: Path) -> dict:
 def blocked_reason(manifest: dict, target: str, approval: dict | None) -> str | None:
     if manifest.get("synthetic") or manifest.get("rights", {}).get("type") == "synthetic":
         return "synthetisches Testvideo – wird nie veröffentlicht"
-    if manifest.get("rights", {}).get("type") not in {"own", "licensed"}:
+    rights = manifest.get("rights", {})
+    if rights.get("type") not in {"own", "licensed", "clipper_program"}:
         return "Rechte nicht bestätigt"
+    if rights.get("type") == "clipper_program" and not manifest.get("credit"):
+        return "Quellenangabe (Streamer) fehlt"
     if not approval or not approval.get(target, {}).get("approved"):
         return "nicht freigegeben"
     if manifest.get("published", {}).get(target):

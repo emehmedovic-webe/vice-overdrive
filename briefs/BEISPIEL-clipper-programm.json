@@ -1,0 +1,16 @@
+{
+  "id": "2026-11-beispiel-monte-clip",
+  "streamer": "montanablack88",
+  "source": "../media/monte-clip.mp4",
+  "twitch_clip_url": "https://clips.twitch.tv/BEISPIEL",
+  "start": 0,
+  "duration": 30,
+  "rights": {
+    "type": "clipper_program",
+    "note": "Clip aus dem Clipper-Programm; Beleg steht in config.json beim Streamer (proof)"
+  },
+  "topic": "Monte eskaliert in Vice City",
+  "hook": "Monte hat damit NICHT gerechnet 😳",
+  "keywords": ["MontanaBlack", "GTA RP"],
+  "subtitles_srt": "../media/monte-clip.srt"
+}

@@ -1,14 +1,60 @@
 {
   "youtube_channel": "@viceoverdrive6",
   "tiktok_account": "@viceoverdrive",
-  "twitch_watchlist": [
-    "montanablack88",
-    "eliasn97",
-    "trymacs",
-    "xrohat",
-    "gtasty"
-  ],
-  "discovery_category": "Grand Theft Auto VI",
+  "clip_allowlist": {
+    "_hinweis": "Nur Clips dieser Kanäle werden gesucht und dürfen geschnitten werden. active=false = nur vorgemerkt. proof = Beleg der Clipper-Freigabe (VOD-Link + Zeitstempel der Ansage, Discord-Link o. Ä.). Ohne proof kein Schnitt. required_tags = Pflicht-Tags aus den Regeln des Clipper-Programms, landen automatisch in jeder Caption.",
+    "streamers": [
+      {
+        "twitch_login": "montanablack88",
+        "name": "MontanaBlack",
+        "active": true,
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
+        "required_tags": [],
+        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe)."
+      },
+      {
+        "twitch_login": "eligella",
+        "name": "Eligella",
+        "active": true,
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
+        "required_tags": [],
+        "notes": "Clipper-Programm laut Enis im Stream angesagt."
+      },
+      {
+        "twitch_login": "xrohat",
+        "name": "Rohat",
+        "active": true,
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
+        "required_tags": [],
+        "notes": "Clipper-Programm laut Enis im Stream angesagt."
+      },
+      {
+        "twitch_login": "xqc",
+        "name": "xQc",
+        "active": true,
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
+        "required_tags": [],
+        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt auch auf Kick; das Radar sieht nur Twitch."
+      },
+      {
+        "twitch_login": "ishowspeed",
+        "name": "IShowSpeed",
+        "channel_url": "https://www.youtube.com/@IShowSpeed",
+        "active": true,
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
+        "required_tags": [],
+        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: das Twitch-Radar findet hier kaum/keine Clips, Material per Brief einbringen. Quellenangabe verweist auf YouTube."
+      }
+    ]
+  },
+  "gta_filter": {
+    "enabled": true,
+    "categories": [
+      "Grand Theft Auto V",
+      "Grand Theft Auto VI"
+    ],
+    "_hinweis": "Nur Clips aus diesen Twitch-Kategorien (GTA RP läuft unter Grand Theft Auto V)."
+  },
   "language": "de",
   "radar": {
     "lookback_hours_first_run": 48,
