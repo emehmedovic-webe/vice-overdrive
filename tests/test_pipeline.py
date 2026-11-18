@@ -639,6 +639,20 @@ class AutopilotTests(unittest.TestCase):
                                          **opts)["status"], "no_suitable_clip")
             self.assertEqual(len(calls), 1)
 
+    def test_tiktok_reports_api_code_without_response_or_credentials(self):
+        def rejected(*args):
+            raise RuntimeError("HTTP 403 bei POST https://example.invalid/?upload_token=do-not-log "
+                               "unaudited_client_can_only_post_to_private_accounts")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._cycle(Path(tmp), self._item(), tiktok_inbox=True,
+                                 tt_token=lambda *a: "fake", tt_upload=rejected)
+            self.assertEqual(result["tiktok"], {
+                "status": "tiktok_unconfirmed", "http_status": 403,
+                "reason": "unaudited_client_can_only_post_to_private_accounts",
+            })
+            self.assertNotIn("do-not-log", json.dumps(result))
+
     def test_tiktok_refresh_rotation_stays_local_and_reuses_new_token(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
             "TIKTOK_CLIENT_KEY": "key", "TIKTOK_CLIENT_SECRET": "fake",
