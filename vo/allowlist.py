@@ -32,6 +32,11 @@ def short_url(entry: dict) -> str:
     return channel_url(entry).split("://", 1)[-1].removeprefix("www.")
 
 
+def has_proof(entry: dict, field: str = "proof") -> bool:
+    proof = entry.get(field)
+    return isinstance(proof, str) and bool(proof.strip())
+
+
 def credit_line(entry: dict) -> str:
     """Quellenangabe, die in jede Beschreibung/Caption kommt."""
     return f"{entry['name']} – {short_url(entry)}"

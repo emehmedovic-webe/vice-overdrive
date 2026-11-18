@@ -145,7 +145,7 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
     wanted = allowlist.logins(cfg)
     if not wanted:
         raise SystemExit("clip_allowlist in config.json ist leer – keine Kanäle zum Suchen.")
-    users = client.users(wanted)
+    users = [u for u in client.users(wanted) if u["login"].lower() in wanted]
     missing_logins = sorted(set(wanted) - {u["login"].lower() for u in users})
 
     gcfg = cfg.get("gta_filter", {})
@@ -162,6 +162,8 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
     for user in users:
         for clip in client.clips(broadcaster_id=user["id"], started_at=started_at,
                                  ended_at=ended_at, first=rcfg["max_clips_per_source"]):
+            if clip.get("broadcaster_id") != user["id"]:
+                continue
             if allowed_games and clip.get("game_id") not in allowed_games:
                 skipped_not_gta += 1
                 continue
@@ -177,8 +179,8 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
         from .youtube_radar import find_videos
         try:
             yt = find_videos(cfg, youtube, window_start, gta_only=bool(gcfg.get("enabled")))
-        except RuntimeError as exc:  # YouTube-Fehler sollen das Twitch-Ergebnis nicht verhindern
-            yt_info["status"] = f"FEHLER: {str(exc)[:200]}"
+        except RuntimeError:  # Keine API-Antwort mit möglichen Geheimnissen in den Bericht schreiben
+            yt_info["status"] = "FEHLER: YouTube-Suche fehlgeschlagen (API-Zugriff prüfen)"
         else:
             found.extend(yt["found"])
             yt_info = {"status": "ok", "missing_handles": yt["missing_handles"],
