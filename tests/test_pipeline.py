@@ -524,6 +524,16 @@ class AutopilotTests(unittest.TestCase):
                                radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
             self.assertEqual(again, [])
 
+    def test_export_mixes_streamers(self):
+        from vo.export import mix_by_streamer
+        top = [{"id": f"t{i}", "streamer_login": "trymacs", "view_count": 5} for i in range(4)]
+        top += [{"id": "r0", "streamer_login": "xrohat", "view_count": 0},
+                {"id": "r1", "streamer_login": "xrohat", "view_count": 9},
+                {"id": "m0", "streamer_login": "montanablack88", "view_count": 3}]
+        order = [c["id"] for c in mix_by_streamer(top)]
+        self.assertEqual(order[:3], ["t0", "r1", "m0"])  # abwechselnd, Rohat-Clip mit Aufrufen zuerst
+        self.assertEqual(order[3:5], ["t1", "r0"])
+
     def test_export_caption_is_only_description_and_hashtags(self):
         from vo.export import export_caption
         from vo.texts import tiktok_caption_problems, tiktok_description

@@ -18,6 +18,23 @@ from .texts import tiktok_export_caption
 from .twitch import run_radar
 
 SKIP_TIKTOK = {"attempted", "pending", "sent", "exported"}
+# Enis 2026-11-18: Mischung pro Paket, z. B. 1–2 Monte, 1–2 Rohat, 1–2 Trymacs, nicht nur einer.
+MAX_PER_STREAMER = 2
+
+
+def mix_by_streamer(top: list[dict]) -> list[dict]:
+    """Abwechselnd nach Streamer sortieren. Innerhalb eines Streamers zuerst Clips mit Aufrufen,
+    sonst in Radar-Reihenfolge (schnellster Aufrufzuwachs zuerst)."""
+    groups: dict[str, list[dict]] = {}
+    for clip in top:
+        groups.setdefault(str(clip.get("streamer_login") or "").casefold(), []).append(clip)
+    queues = [sorted(g, key=lambda c: not (c.get("view_count") or 0)) for g in groups.values()]
+    mixed: list[dict] = []
+    while any(queues):
+        for q in queues:
+            if q:
+                mixed.append(q.pop(0))
+    return mixed
 
 
 def export_caption(src: Path) -> str:
@@ -50,9 +67,13 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
         state = load_state(state_path)
         old = state["clips"]
         report = radar(cfg, root / "state" / "radar_state.json", root / "radar")
-        for clip in report["top"]:
+        per_streamer: dict[str, int] = {}
+        for clip in mix_by_streamer(report["top"]):
             if len(exported) >= limit:
                 break
+            login = str(clip.get("streamer_login") or "").casefold()
+            if per_streamer.get(login, 0) >= MAX_PER_STREAMER:
+                continue
             try:
                 sid, _url, streamer = source_for(clip, cfg)
             except ClipError:
@@ -91,6 +112,7 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
                    "tiktok_status": "exported", "tiktok_at": iso(clock())}
             old[sid] = rec
             atomic_json(state_path, state)
+            per_streamer[login] = per_streamer.get(login, 0) + 1
             exported.append({"file": name, "streamer": streamer, "title": title,
                              "source": clip.get("url", ""), "caption": caption, "check": check})
     notes = ["# TikTok-Export (selbst posten)", "",
