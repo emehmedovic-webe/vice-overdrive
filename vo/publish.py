@@ -171,6 +171,29 @@ def tiktok_check() -> dict:
     }
 
 
+def tiktok_revoke_stored() -> str:
+    """Widerruft den im Secret gespeicherten (alten) Zugang über TikToks offiziellen Revoke.
+
+    Nur auf ausdrücklichen Wunsch. Gibt keine Token aus.
+    """
+    key, sec = secret("TIKTOK_CLIENT_KEY"), secret("TIKTOK_CLIENT_SECRET")
+    data = http_json("POST", TT_TOKEN_URL, form={
+        "client_key": key, "client_secret": sec,
+        "grant_type": "refresh_token", "refresh_token": secret("TIKTOK_REFRESH_TOKEN")})
+    if "access_token" not in data:
+        return f"Alter Token ist bereits nicht mehr nutzbar ({data.get('error')}). Nichts zu widerrufen."
+    res = http_json("POST", "https://open.tiktokapis.com/v2/oauth/revoke/", form={
+        "client_key": key, "client_secret": sec, "token": data["access_token"]})
+    if res.get("error"):
+        raise SystemExit(f"Widerruf fehlgeschlagen: {res.get('error')} {res.get('error_description')}")
+    after = http_json("POST", TT_TOKEN_URL, form={
+        "client_key": key, "client_secret": sec,
+        "grant_type": "refresh_token", "refresh_token": secret("TIKTOK_REFRESH_TOKEN")})
+    if "access_token" in after:
+        raise SystemExit("Widerruf gemeldet, aber der alte Refresh-Token funktioniert noch.")
+    return f"Widerrufen. Gegenprobe: alter Refresh-Token wird abgelehnt ({after.get('error')})."
+
+
 def _tt_call(path_or_url: str, token: str, body: dict) -> dict:
     url = path_or_url if path_or_url.startswith("https://") else f"{TT_API}/{path_or_url}"
     data = http_json("POST", url, headers={"Authorization": f"Bearer {token}",

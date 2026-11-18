@@ -88,6 +88,7 @@ def main(argv=None) -> None:
     sub.add_parser("radar")
     mk = sub.add_parser("make"); mk.add_argument("brief")
     sub.add_parser("batch")
+    sub.add_parser("tiktok-revoke-old", help="Alten gespeicherten TikTok-Zugang widerrufen")
     sub.add_parser("tiktok-check", help="TikTok-Anmeldung echt prüfen, ohne Upload")
     pb = sub.add_parser("publish"); pb.add_argument("target", choices=["youtube", "tiktok"])
     pb.add_argument("--live", action="store_true", help="Wirklich veröffentlichen (nur freigegebene)")
@@ -109,6 +110,9 @@ def main(argv=None) -> None:
             print(f"[{r['mode']}] {r['target']} {r['short_id']}: {r['blocked'] or 'würde veröffentlicht' if r['mode']=='dry-run' else r.get('result') or r['blocked']}")
         if not res:
             print("Keine Shorts vorhanden.")
+    elif a.cmd == "tiktok-revoke-old":
+        from .publish import tiktok_revoke_stored
+        print(tiktok_revoke_stored())
     elif a.cmd == "tiktok-check":
         from .publish import tiktok_check
         r = tiktok_check()
