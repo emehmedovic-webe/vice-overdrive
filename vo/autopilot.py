@@ -259,7 +259,8 @@ def _send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, toke
     try:
         access = (token(data, cfg["tiktok_account"], cfg["tiktok"]["mode"])
                   if cfg["tiktok"]["mode"] == "direct" else token(data, cfg["tiktok_account"]))
-    except (OSError, RuntimeError, KeyError, ValueError, SystemExit):
+    except (OSError, RuntimeError, KeyError, ValueError, SystemExit) as exc:
+        print(f"TikTok-Anmeldung fehlgeschlagen: {str(exc)[:300]}", flush=True)
         return {"status": "tiktok_auth_failed"}
     rec.update(tiktok_status="attempted", tiktok_at=iso(clock()))
     state["last_attempt"] = rec["tiktok_at"]
@@ -267,6 +268,8 @@ def _send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, toke
     try:
         result = upload(video, manifest, cfg, access)
     except (OSError, RuntimeError, KeyError, ValueError) as exc:
+        # TikTok-Fehlertext enthält keine Token, hilft aber bei der Diagnose.
+        print(f"TikTok-Upload nicht bestätigt: {str(exc)[:300]}", flush=True)
         limited = "spam_risk_too_many_pending_share" in str(exc)
         rec["tiktok_status"] = "waiting" if limited else "unconfirmed"
         atomic_json(state_path, state)
