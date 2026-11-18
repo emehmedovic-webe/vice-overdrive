@@ -15,6 +15,14 @@ on:
         description: "Zusätzlich als Entwurf in die TikTok-Inbox senden (veröffentlicht nichts)"
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      youtube:
+        type: string
+        default: private
+      tiktok_inbox:
+        type: boolean
+        default: false
 concurrency:
   group: vice-overdrive-autopilot
   cancel-in-progress: false

@@ -7,12 +7,21 @@ on:
       step:
         description: "Was testen?"
         type: choice
-        options: [radar, radar-clips, publish-dry-run, tiktok-check, tiktok-revoke-old, youtube-check]
+        options: [radar, radar-clips, publish-dry-run, tiktok-check, tiktok-revoke-old, youtube-check, autopilot-privat-test]
         default: radar
 permissions:
   contents: read
 jobs:
+  autopilot:
+    # Ein Autopilot-Durchgang mit PRIVATEM YouTube-Upload (höchstens 1 Video).
+    if: inputs.step == 'autopilot-privat-test'
+    uses: ./.github/workflows/autopilot.yml
+    with:
+      youtube: private
+      tiktok_inbox: false
+    secrets: inherit
   run:
+    if: inputs.step != 'autopilot-privat-test'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
