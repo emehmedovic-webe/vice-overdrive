@@ -1,0 +1,19 @@
+name: VICE OVERDRIVE YouTube-Zugang prüfen
+on:
+  push:
+    branches: ['ops/youtube-api-preflight-20261118']
+permissions:
+  contents: read
+jobs:
+  check:
+    if: github.event.created
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: YouTube-Zugang prüfen (kein Upload)
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python3 -m vo.youtube_preflight
