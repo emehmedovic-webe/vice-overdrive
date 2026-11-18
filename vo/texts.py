@@ -13,7 +13,8 @@ from .clip_game import GAME_NAMES, hashtags
 YT_TITLE_MAX = 100
 TIKTOK_CAPTION_MAX = 2200
 TIKTOK_HASHTAG_MAX = 5
-TIKTOK_FIXED_TAGS = ("#fy", "#fyp")
+# Enis 2026-11-18: #fyp, #fy und #viral stehen in jeder TikTok-Caption (bleiben 2 Plätze frei).
+TIKTOK_FIXED_TAGS = ("#fyp", "#fy", "#viral")
 
 # Nur belegbare Themen aus dem Clip-Titel oder einer bereits erkannten Szene ableiten.
 _ANGLES = (
@@ -169,7 +170,7 @@ def build_texts(brief: dict, cfg: dict) -> dict:
 
     if sum(t.startswith("#") and t.casefold() not in TIKTOK_FIXED_TAGS
            for t in _uniq(extra_tags)) > TIKTOK_HASHTAG_MAX - len(TIKTOK_FIXED_TAGS):
-        raise ValueError("TikTok-Limit: Die Pflicht-Tags passen nicht zusammen mit #fy und #fyp.")
+        raise ValueError("TikTok-Limit: Die Pflicht-Tags passen nicht zusammen mit #fyp, #fy und #viral.")
     tt_tags = _tiktok_hashtags(extra_tags + tt_base[:1] + [creator_tag] + tt_base +
                                [_tag(k).lower() for k in keywords])
     tt_tags += [t for t in _uniq(extra_tags) if t.startswith("@")]
@@ -225,7 +226,7 @@ def tiktok_caption_problems(caption: str) -> list[str]:
     if not 0 < len(tags) <= TIKTOK_HASHTAG_MAX or not all(re.fullmatch(r"#\w+", t) for t in tags):
         problems.append(f"Hashtag-Zeile muss 1–{TIKTOK_HASHTAG_MAX} Hashtags und sonst nichts enthalten.")
     if not set(TIKTOK_FIXED_TAGS).issubset(t.casefold() for t in tags):
-        problems.append("TikTok-Caption braucht #fy und #fyp.")
+        problems.append("TikTok-Caption braucht #fyp, #fy und #viral.")
     if len({t.casefold() for t in tags}) != len(tags):
         problems.append("Doppelte Hashtags.")
     for pattern, label in _CAPTION_EXTRAS:

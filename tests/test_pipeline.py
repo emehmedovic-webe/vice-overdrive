@@ -393,8 +393,9 @@ class AutopilotTests(unittest.TestCase):
                 self.assertIn("MontanaBlack", text)
                 self.assertIn("https://www.twitch.tv/montanablack88", text)
                 self.assertIn("#GTAV", text)
-                self.assertIn("#Verfolgungsjagd", text)
                 self.assertNotIn("#GTA6", text)
+            # Szenen-Tag passt nur noch bei YouTube; TikTok hat 2 freie Plätze neben #fyp #fy #viral.
+            self.assertIn("#Verfolgungsjagd", youtube)
             self.assertIn("#Shorts", youtube)
             self.assertNotIn("#Shorts", tiktok)
 
@@ -514,7 +515,7 @@ class AutopilotTests(unittest.TestCase):
             folder = Path(tmp) / "export" / rows[0]["file"]
             self.assertTrue((folder / "video.mp4").is_file())
             caption = (folder / "caption.txt").read_text(encoding="utf-8")
-            self.assertEqual(caption, "Monte fährt Auto.\n\n#GTA6 #MontanaBlack #fy #fyp\n")
+            self.assertEqual(caption, "Monte fährt Auto.\n\n#GTA6 #MontanaBlack #fyp #fy #viral\n")
             self.assertIn("twitch.tv", (Path(tmp) / "export" / "CAPTIONS.md").read_text(encoding="utf-8"))
             state = json.loads((root / "state" / "autopilot.json").read_text(encoding="utf-8"))
             self.assertEqual(state["clips"]["twitch-race-b"]["tiktok_status"], "exported")
@@ -539,7 +540,7 @@ class AutopilotTests(unittest.TestCase):
             self.assertEqual(desc, "Monte springt in einen roten SUV und fährt durch Vice City.")
             self.assertTrue(all(t.startswith("#") for t in tags.split()))
             self.assertLessEqual(len(tags.split()), 5)
-            self.assertEqual(tags.split()[-2:], ["#fy", "#fyp"])
+            self.assertEqual(tags.split()[-3:], ["#fyp", "#fy", "#viral"])
             self.assertEqual(tiktok_caption_problems(caption), [])
         bad = ["Text.\n\n#GTA6\nhttps://twitch.tv/x", "Text 🎥 Clip von xQc.\n\n#GTA6",
                "Text. Was hättet ihr gemacht?\n\n#GTA6", "Gleich. Gleich.\n\n#GTA6",
@@ -696,7 +697,7 @@ class AutopilotTests(unittest.TestCase):
             kw = {"tiktok_inbox": True, "tt_token": lambda *a: "fake", "tt_upload": fake_upload}
             first = self._cycle(data, self._item(), **kw)
             self.assertEqual(first["tiktok"]["status"], "tiktok_inbox_pending")
-            self.assertTrue(next(data.glob("shorts/*/caption.txt")).read_text().endswith("#fy #fyp\n"))
+            self.assertTrue(next(data.glob("shorts/*/caption.txt")).read_text().endswith("#fyp #fy #viral\n"))
             with patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
                 second = run_cycle(CFG, data, **kw, radar=lambda *a: self.fail("Nicht neu rendern"),
                                    tt_fetch_status=lambda pid, tok: {"status": "SEND_TO_USER_INBOX"},
@@ -789,7 +790,7 @@ class TextAndRightsTests(unittest.TestCase):
         t = build_texts({"topic": "Polizeiflucht am Strand", "keywords": ["Vice City"]}, CFG)
         self.assertTrue(t["youtube"]["title"].endswith("#Shorts"))
         self.assertLessEqual(len(t["youtube"]["title"]), 100)
-        self.assertIn("#gta6deutsch", t["tiktok"]["caption"])
+        self.assertIn("#gta6 #gtavi #fyp #fy #viral", t["tiktok"]["caption"])
         self.assertNotEqual(t["youtube"]["description"], t["tiktok"]["caption"])
 
     def test_long_title_truncated(self):
