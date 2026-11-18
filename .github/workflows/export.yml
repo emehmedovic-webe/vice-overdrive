@@ -1,12 +1,12 @@
 # TikTok-Export: übrige GTA-6-Clips fertig geschnitten als ZIP (pro Clip ein Ordner mit
 # video.mp4 + caption.txt) zum selbst Posten. Exportierte Clips schickt der Autopilot nie
 # mehr an TikTok; bereits gesendete Entwürfe sind nicht dabei. YouTube bleibt automatisch.
-# Stündlich (xx:17): höchstens 3 neue Clips, nur wenn es welche gibt, als neue Release.
+# Jede halbe Stunde (xx:17, xx:47): höchstens 5 neue Clips, nur wenn es welche gibt, als neue Release.
 # Abholen: https://github.com/emehmedovic-webe/vice-overdrive/releases
 name: VICE OVERDRIVE TikTok-Export
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '17,47 * * * *'
   workflow_dispatch:
     inputs:
       limit:
@@ -51,7 +51,7 @@ jobs:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
-          LIMIT: ${{ inputs.limit || 3 }}
+          LIMIT: ${{ inputs.limit || 5 }}
         run: |
           export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
           python3 -m vo export --out tiktok-export --limit "${LIMIT:-15}"
