@@ -148,9 +148,14 @@ def auto_subtitles(src: Path, start: float, duration: float, model: str = "small
     except ImportError:
         return []
     try:
+        import numpy as np
+        # Ton selbst mit ffmpeg dekodieren (16 kHz mono), dann braucht faster-whisper kein PyAV.
+        raw = subprocess.run(["ffmpeg", "-v", "error", "-nostdin", "-ss", str(start), "-t", str(duration),
+                              "-i", str(src), "-vn", "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
+                             capture_output=True, check=True, timeout=300, env=media_env()).stdout
+        audio = np.frombuffer(raw, dtype=np.float32)
         segs, _ = WhisperModel(model, device="cpu", compute_type="int8").transcribe(
-            str(src), language="de", vad_filter=True, word_timestamps=True,
-            clip_timestamps=[start, start + duration])
+            audio, language="de", vad_filter=True, word_timestamps=True)
         words = [w for seg in segs for w in (seg.words or [])]
     except Exception as exc:  # Untertitel sind ein Extra, kein Grund für einen Abbruch
         print(f"Untertitel übersprungen: {str(exc)[:200]}", flush=True)
@@ -164,7 +169,7 @@ def auto_subtitles(src: Path, start: float, duration: float, model: str = "small
             chunk = []
     if chunk:
         out.append(chunk)
-    return [{"start": max(0.0, c[0].start - start), "end": max(0.0, c[-1].end - start),
+    return [{"start": max(0.0, c[0].start), "end": max(0.0, c[-1].end),
              "text": " ".join(x.word.strip() for x in c)} for c in out if c[-1].end > c[0].start]
 
 
