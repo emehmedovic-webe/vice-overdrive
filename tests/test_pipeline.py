@@ -494,7 +494,10 @@ class AutopilotTests(unittest.TestCase):
                 out = data / "shorts" / ("twitch-" + row["id"])
                 out.mkdir(parents=True)
                 (out / "short.mp4").write_bytes(b"mp4")
-                (out / "tiktok.txt").write_text("Caption #GTA6\n", encoding="utf-8")
+                (out / "tiktok.txt").write_text(
+                    "Monte fährt Auto. Monte fährt Auto. 👀 Was hättet ihr gemacht?\n"
+                    "🎥 Clip von MontanaBlack: https://www.twitch.tv/montanablack88\n#GTA6 #MontanaBlack\n",
+                    encoding="utf-8")
                 return {"rendered": ["twitch-" + row["id"]]}
 
             items = [self._item("race-a", video="v1"), self._item("race-b", video="v2")]
@@ -503,13 +506,40 @@ class AutopilotTests(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             folder = Path(tmp) / "export" / rows[0]["file"]
             self.assertTrue((folder / "video.mp4").is_file())
-            self.assertIn("#GTA6", (folder / "caption.txt").read_text(encoding="utf-8"))
+            caption = (folder / "caption.txt").read_text(encoding="utf-8")
+            self.assertEqual(caption, "Monte fährt Auto.\n\n#GTA6 #MontanaBlack\n")
+            self.assertIn("twitch.tv", (Path(tmp) / "export" / "CAPTIONS.md").read_text(encoding="utf-8"))
             state = json.loads((root / "state" / "autopilot.json").read_text(encoding="utf-8"))
             self.assertEqual(state["clips"]["twitch-race-b"]["tiktok_status"], "exported")
             # Ein zweiter Export liefert denselben Clip nicht noch einmal.
             again = run_export(CFG, root, Path(tmp) / "export2",
                                radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
             self.assertEqual(again, [])
+
+    def test_export_caption_is_only_description_and_hashtags(self):
+        from vo.export import export_caption
+        from vo.texts import tiktok_caption_problems, tiktok_description
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            brief = {"streamer": "montanablack88", "game": "gta6", "topic": "Monte fährt Auto",
+                     "caption": "Monte springt in einen roten SUV und fährt durch Vice City."}
+            texts = build_texts(brief, CFG)
+            self.assertIn("twitch.tv", texts["tiktok"]["caption"])
+            write_json(out / "manifest.json", {"texts": texts, "source": "https://www.twitch.tv/x/clip/y",
+                                               "tiktok_description": tiktok_description(brief, CFG)})
+            caption = export_caption(out)
+            desc, tags = caption.split("\n\n")
+            self.assertEqual(desc, "Monte springt in einen roten SUV und fährt durch Vice City.")
+            self.assertTrue(all(t.startswith("#") for t in tags.split()))
+            self.assertLessEqual(len(tags.split()), 5)
+            self.assertEqual(tiktok_caption_problems(caption), [])
+        bad = ["Text.\n\n#GTA6\nhttps://twitch.tv/x", "Text 🎥 Clip von xQc.\n\n#GTA6",
+               "Text. Was hättet ihr gemacht?\n\n#GTA6", "Gleich. Gleich.\n\n#GTA6",
+               "Text.\n\n#a #b #c #d #e #f", "Text.\n\n#GTA6\n\nDrei Alternativen #GTAVI",
+               "Passt gut zum Clip.\n\n#GTA6", "Nur Text ohne Hashtags"]
+        for caption in bad:
+            with self.subTest(caption=caption):
+                self.assertTrue(tiktok_caption_problems(caption))
 
     def test_direct_mode_only_with_self_only(self):
         cfg = {**CFG, "tiktok": {**CFG["tiktok"], "mode": "direct", "privacy_level": "PUBLIC_TO_EVERYONE"}}

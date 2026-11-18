@@ -110,7 +110,7 @@ aus demselben Short-Ordner. Vorhandene Texte können auch von einem anderen Text
 stammen. Fehlen Texte, Pflicht-Tags oder die Quelle, wird der Clip übersprungen.
 Dieser Modus schaut den Bildinhalt nicht an und benötigt weder Ollama noch einen KI-API-Key.
 
-Automatische Beschreibung: ungefähr 20–30 Wörter mit Bezug zum Titel oder zur erkannten Szene, ohne doppelte Titelzeile und ohne Standardfrage. YouTube erhält bis zu acht passende Hashtags. In der TikTok-Caption stehen höchstens fünf Hashtags, Pflicht-Tags und Quellenzeile bleiben erhalten. [Neue Captions für den Export 01–11](docs/tiktok-captions-01-11.md).
+Automatische Beschreibung: ungefähr 20–30 Wörter mit Bezug zum Titel oder zur erkannten Szene, ohne doppelte Titelzeile und ohne Standardfrage. YouTube erhält bis zu acht passende Hashtags. In der TikTok-Caption stehen höchstens fünf Hashtags, Pflicht-Tags und Quellenzeile bleiben erhalten. **TikTok-Export:** `caption.txt` enthält nur die Beschreibung und nach einer Leerzeile eine Hashtag-Zeile, ohne Link, „Clip von“, Standardfrage oder Notizen. Der Export prüft das (`tiktok_caption_problems`) und lässt einen Clip weg, statt eine fehlerhafte Caption zu schreiben. Die Quelle steht nur intern in `CAPTIONS.md`. [Neue Captions für den Export 01–11](docs/tiktok-captions-01-11.md).
 
 ```sh
 python -m vo autopilot --text-source files --youtube off --env-file data/autopilot.env

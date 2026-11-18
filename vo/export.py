@@ -14,9 +14,26 @@ from .autopilot import _same_moment, _source_ids, atomic_json, load_state, lock
 from .clip_game import GAME_NAMES, clip_game
 from .common import iso, now_utc, read_json
 from .radar_clips import ClipError, prepare_clips, source_for
+from .texts import tiktok_export_caption
 from .twitch import run_radar
 
 SKIP_TIKTOK = {"attempted", "sent", "exported"}
+
+
+def export_caption(src: Path) -> str:
+    """Caption für den Export: nur Beschreibung + Hashtags, ohne Link, Credit oder Standardfrage.
+
+    Quelle und Rechte bleiben im Manifest, im Autopilot-Zustand und in CAPTIONS.md (intern).
+    """
+    manifest = read_json(src / "manifest.json", {})
+    tiktok = manifest.get("texts", {}).get("tiktok", {})
+    description = (manifest.get("autopilot", {}).get("observation") or manifest.get("tiktok_description") or "").strip()
+    hashtags = tiktok.get("hashtags") or []
+    if not description:
+        raw = (src / "tiktok.txt").read_text(encoding="utf-8") if (src / "tiktok.txt").is_file() else ""
+        hashtags = hashtags or re.findall(r"(?<!\w)#\w+", raw)
+        description = re.sub(r"(?<!\w)#\w+", "", raw)
+    return tiktok_export_caption(description, hashtags)
 
 
 def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
@@ -62,9 +79,12 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
             slug = re.sub(r"[^a-z0-9]+", "-", title.casefold()).strip("-")[:40] or "clip"
             name = f"{len(exported) + 1:02d}_{streamer}_{slug}" + ("_PRUEFEN-evtl-schon-in-Inbox" if check else "")
             folder = out / name
+            try:
+                caption = export_caption(src)
+            except ValueError:
+                continue
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src / "short.mp4", folder / "video.mp4")
-            caption = (src / "tiktok.txt").read_text(encoding="utf-8").strip() if (src / "tiktok.txt").is_file() else ""
             (folder / "caption.txt").write_text(caption + "\n", encoding="utf-8")
             rec = {"status": "prepared", **previous, "source_ids": sorted(_source_ids(clip)),
                    "video_id": clip.get("video_id"), "vod_offset": clip.get("vod_offset"),
@@ -74,7 +94,8 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
             exported.append({"file": name, "streamer": streamer, "title": title,
                              "source": clip.get("url", ""), "caption": caption, "check": check})
     notes = ["# TikTok-Export (selbst posten)", "",
-             "Diese Clips gehen NICHT mehr automatisch an TikTok. Bereits gesendete Entwürfe sind nicht dabei.", ""]
+             "Diese Clips gehen NICHT mehr automatisch an TikTok. Bereits gesendete Entwürfe sind nicht dabei.",
+             "Nur caption.txt wird gepostet. Die Quelle hier ist eine interne Notiz und gehört nicht in die Caption.", ""]
     for e in exported:
         notes += [f"## {e['file']}" + (" ⚠️ evtl. schon in der TikTok-Inbox, erst prüfen" if e["check"] else ""),
                   f"Quelle: {e['source']}", "", "```", e["caption"], "```", ""]
