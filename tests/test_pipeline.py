@@ -32,6 +32,8 @@ GTA6_ONLY = copy.deepcopy(CFG)
 # Bestehende Tests decken beide Spiele ab; der Live-Filter steht in config.json (nur GTA VI).
 CFG["gta_filter"]["categories"] = ["Grand Theft Auto V", "Grand Theft Auto VI"]
 CFG["gta_filter"]["games"] = ["gta5", "gta6"]
+for _s in CFG["clip_allowlist"]["streamers"]:
+    _s["active"] = True  # Live sind xQc/Speed pausiert (nur deutsche Streamer); Tests prüfen alle Pfade.
 CFG["tiktok"]["mode"] = "inbox"  # Live: direct + SELF_ONLY; Tests decken beide Modi ab.
 NOW = datetime(2026, 11, 17, 12, 0, tzinfo=timezone.utc)
 
@@ -82,6 +84,11 @@ class FakeTwitch:
 
 
 class RadarTests(unittest.TestCase):
+    def test_live_allowlist_is_german_only(self):
+        from vo import allowlist
+        active = {s["twitch_login"] for s in allowlist.streamers(GTA6_ONLY)}
+        self.assertEqual(active, {"montanablack88", "eligella", "xrohat", "trymacs"})
+
     def test_dedupe_merges_same_vod_window_and_same_id(self):
         groups = dedupe([clip("x", "1", 10), clip("y", "1", 20, offset=115), clip("z", "1", 5, offset=500, title="anders"),
                          {**clip("x", "1", 10), "found_via": ["allowlist:x"]}])
