@@ -88,6 +88,7 @@ def main(argv=None) -> None:
     sub.add_parser("radar")
     mk = sub.add_parser("make"); mk.add_argument("brief")
     sub.add_parser("batch")
+    sub.add_parser("tiktok-check", help="TikTok-Anmeldung echt prüfen, ohne Upload")
     pb = sub.add_parser("publish"); pb.add_argument("target", choices=["youtube", "tiktok"])
     pb.add_argument("--live", action="store_true", help="Wirklich veröffentlichen (nur freigegebene)")
     st = sub.add_parser("selftest"); st.add_argument("--out", default="selftest-out")
@@ -108,6 +109,18 @@ def main(argv=None) -> None:
             print(f"[{r['mode']}] {r['target']} {r['short_id']}: {r['blocked'] or 'würde veröffentlicht' if r['mode']=='dry-run' else r.get('result') or r['blocked']}")
         if not res:
             print("Keine Shorts vorhanden.")
+    elif a.cmd == "tiktok-check":
+        from .publish import tiktok_check
+        r = tiktok_check()
+        print(f"OK Token-Erneuerung. Berechtigungen: {r['scope']}")
+        print(f"OK user.info.basic – Anzeigename: {r['display_name']}")
+        print(f"OK Posting-Abfrage (kein Upload) – Creator: @{r['creator_username']}, "
+              f"Sichtbarkeiten: {r['privacy_level_options']}")
+        if r["refresh_token_rotated"]:
+            print("ACHTUNG: TikTok hat einen NEUEN Refresh-Token ausgegeben. Bitte das Mac-Skript "
+                  "erneut ausführen und TIKTOK_REFRESH_TOKEN ersetzen.")
+            return 3
+        print("OK Refresh-Token unverändert – GitHub-Secret bleibt gültig.")
     elif a.cmd == "selftest":
         selftest(cfg, Path(a.out).resolve())
 

@@ -143,6 +143,34 @@ def tiktok_access_token() -> str:
     return data["access_token"]
 
 
+def tiktok_check() -> dict:
+    """Echte Anmeldeprüfung ohne Upload: Refresh-Grant, user/info, creator_info.
+
+    Gibt keine Token aus. Meldet nur, ob TikTok einen neuen Refresh-Token ausgegeben hat.
+    """
+    key = secret("TIKTOK_CLIENT_KEY")
+    if not key.startswith("sb"):
+        raise SystemExit("TIKTOK_CLIENT_KEY ist kein Sandbox-Key (erwartet Präfix 'sb'). Abbruch.")
+    old = secret("TIKTOK_REFRESH_TOKEN")
+    data = http_json("POST", TT_TOKEN_URL, form={
+        "client_key": key, "client_secret": secret("TIKTOK_CLIENT_SECRET"),
+        "grant_type": "refresh_token", "refresh_token": old})
+    if "access_token" not in data:
+        raise SystemExit(f"TikTok-Token fehlgeschlagen: {data.get('error')} {data.get('error_description')}")
+    token = data["access_token"]
+    auth = {"Authorization": f"Bearer {token}"}
+    info = http_json("GET", "https://open.tiktokapis.com/v2/user/info/", headers=auth,
+                     params={"fields": "open_id,display_name"})
+    creator = _tt_call("https://open.tiktokapis.com/v2/post/publish/creator_info/query/", token, {})
+    return {
+        "scope": data.get("scope", ""),
+        "display_name": info.get("data", {}).get("user", {}).get("display_name"),
+        "creator_username": creator.get("creator_username"),
+        "privacy_level_options": creator.get("privacy_level_options"),
+        "refresh_token_rotated": bool(data.get("refresh_token")) and data["refresh_token"] != old,
+    }
+
+
 def _tt_call(path_or_url: str, token: str, body: dict) -> dict:
     url = path_or_url if path_or_url.startswith("https://") else f"{TT_API}/{path_or_url}"
     data = http_json("POST", url, headers={"Authorization": f"Bearer {token}",
