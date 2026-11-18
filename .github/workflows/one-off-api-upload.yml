@@ -1,0 +1,27 @@
+name: VICE OVERDRIVE einmaliger API-Upload
+on:
+  push:
+    branches: ['ops/one-off-api-check-20261118']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  upload:
+    if: github.run_attempt == 1 && github.event.created
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 44282948164
+          name: radar-clips-nicht-gepostet
+          path: /tmp/vo-upload
+      - name: Offizielle APIs einmal testen (YouTube privat, TikTok Inbox)
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+        run: python3 -m vo.first_api_upload
