@@ -17,7 +17,7 @@ from .radar_clips import ClipError, prepare_clips, source_for
 from .texts import tiktok_export_caption
 from .twitch import run_radar
 
-SKIP_TIKTOK = {"attempted", "sent", "exported"}
+SKIP_TIKTOK = {"attempted", "pending", "sent", "exported"}
 
 
 def export_caption(src: Path) -> str:

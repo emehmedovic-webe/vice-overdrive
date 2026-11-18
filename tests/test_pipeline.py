@@ -34,7 +34,7 @@ CFG["gta_filter"]["categories"] = ["Grand Theft Auto V", "Grand Theft Auto VI"]
 CFG["gta_filter"]["games"] = ["gta5", "gta6"]
 for _s in CFG["clip_allowlist"]["streamers"]:
     _s["active"] = True  # Live sind xQc/Speed pausiert (nur deutsche Streamer); Tests prüfen alle Pfade.
-CFG["tiktok"]["mode"] = "inbox"  # Live: direct + SELF_ONLY; Tests decken beide Modi ab.
+CFG["tiktok"]["mode"] = "inbox"  # Produktiver Autopilot arbeitet nur mit Inbox-Entwürfen.
 NOW = datetime(2026, 11, 17, 12, 0, tzinfo=timezone.utc)
 
 
@@ -514,7 +514,7 @@ class AutopilotTests(unittest.TestCase):
             folder = Path(tmp) / "export" / rows[0]["file"]
             self.assertTrue((folder / "video.mp4").is_file())
             caption = (folder / "caption.txt").read_text(encoding="utf-8")
-            self.assertEqual(caption, "Monte fährt Auto.\n\n#GTA6 #MontanaBlack\n")
+            self.assertEqual(caption, "Monte fährt Auto.\n\n#GTA6 #MontanaBlack #fy #fyp\n")
             self.assertIn("twitch.tv", (Path(tmp) / "export" / "CAPTIONS.md").read_text(encoding="utf-8"))
             state = json.loads((root / "state" / "autopilot.json").read_text(encoding="utf-8"))
             self.assertEqual(state["clips"]["twitch-race-b"]["tiktok_status"], "exported")
@@ -539,6 +539,7 @@ class AutopilotTests(unittest.TestCase):
             self.assertEqual(desc, "Monte springt in einen roten SUV und fährt durch Vice City.")
             self.assertTrue(all(t.startswith("#") for t in tags.split()))
             self.assertLessEqual(len(tags.split()), 5)
+            self.assertEqual(tags.split()[-2:], ["#fy", "#fyp"])
             self.assertEqual(tiktok_caption_problems(caption), [])
         bad = ["Text.\n\n#GTA6\nhttps://twitch.tv/x", "Text 🎥 Clip von xQc.\n\n#GTA6",
                "Text. Was hättet ihr gemacht?\n\n#GTA6", "Gleich. Gleich.\n\n#GTA6",
@@ -684,6 +685,24 @@ class AutopilotTests(unittest.TestCase):
             self.assertEqual(self._cycle(data, self._item(), clock=lambda: NOW + timedelta(hours=1),
                                          **kw)["status"], "no_suitable_clip")
             self.assertEqual(len(calls), 1)
+
+    def test_tiktok_waits_for_inbox_and_rechecks_without_resending(self):
+        uploads = []
+        def fake_upload(video, manifest, cfg, token):
+            uploads.append(video)
+            return {"publish_id": "fake-id", "status": "PROCESSING_UPLOAD", "mode": "inbox"}
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            kw = {"tiktok_inbox": True, "tt_token": lambda *a: "fake", "tt_upload": fake_upload}
+            first = self._cycle(data, self._item(), **kw)
+            self.assertEqual(first["tiktok"]["status"], "tiktok_inbox_pending")
+            self.assertTrue(next(data.glob("shorts/*/caption.txt")).read_text().endswith("#fy #fyp\n"))
+            with patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
+                second = run_cycle(CFG, data, **kw, radar=lambda *a: self.fail("Nicht neu rendern"),
+                                   tt_fetch_status=lambda pid, tok: {"status": "SEND_TO_USER_INBOX"},
+                                   clock=lambda: NOW + timedelta(hours=1))
+            self.assertEqual(second["status"], "tiktok_inbox_accepted")
+            self.assertEqual(len(uploads), 1)
 
     def test_tiktok_refresh_rotation_stays_local_and_reuses_new_token(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
@@ -883,6 +902,24 @@ class PublishTests(unittest.TestCase):
 class TikTokFlowTest(unittest.TestCase):
     """Simulierter Live-Ablauf gegen gefälschte TikTok-Antworten (kein Netzwerk)."""
 
+    def test_inbox_uses_video_only_endpoint_and_polls_for_delivery(self):
+        calls = []
+        def api(path, token, body):
+            calls.append((path, body))
+            if path.endswith("/init/"):
+                return {"publish_id": "p1", "upload_url": "https://open-upload.tiktokapis.com/test"}
+            return {"status": "PROCESSING_UPLOAD" if len(calls) == 2 else "SEND_TO_USER_INBOX"}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(pub, "_tt_call", side_effect=api), \
+                patch.object(pub.urllib.request, "urlopen") as put, patch.object(pub.time, "sleep") as wait:
+            video = Path(tmp) / "short.mp4"
+            video.write_bytes(b"test")
+            result = pub.tiktok_upload(video, {}, CFG, "fake")
+        self.assertTrue(calls[0][0].endswith("/inbox/video/init/"))
+        self.assertEqual(set(calls[0][1]), {"source_info"})
+        self.assertEqual(result["status"], "SEND_TO_USER_INBOX")
+        self.assertEqual(put.call_count, 1)
+        wait.assert_called_once_with(3)
+
     def test_direct_flow_with_fake_api(self):
         calls, puts = [], []
 
@@ -951,6 +988,16 @@ class YouTubeCheckTest(unittest.TestCase):
 
 
 class ActionsUploadGuardTest(unittest.TestCase):
+    def test_even_authorized_actions_cannot_publish_to_youtube_or_direct_post(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "VO_ACTIONS_UPLOAD": "1"}):
+            for cfg, mode, inbox in ((CFG, "public", False),
+                                     ({**CFG, "tiktok": {"mode": "direct", "privacy_level": "SELF_ONLY"}},
+                                      "off", True)):
+                with self.subTest(mode=mode, tiktok=cfg["tiktok"]["mode"]), self.assertRaises(ValueError):
+                    run_cycle(cfg, Path(tmp), mode=mode, tiktok_inbox=inbox,
+                              radar=lambda *a: self.fail("Kein Netzwerk"))
+
     def test_live_upload_on_actions_needs_autopilot_workflow_flag(self):
         from vo.autopilot import run_cycle
         with tempfile.TemporaryDirectory() as tmp, \

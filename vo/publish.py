@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.request
 from pathlib import Path
 
@@ -123,6 +124,8 @@ def youtube_upload(video: Path, body: dict, token: str) -> str:
 TT_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 TT_API = "https://open.tiktokapis.com/v2/post/publish"
 TT_MAX_SINGLE_CHUNK = 64 * 1024 * 1024
+TT_INBOX_READY = frozenset({"SEND_TO_USER_INBOX", "PUBLISH_COMPLETE"})
+TT_PENDING = frozenset({"PROCESSING_UPLOAD", "PROCESSING_DOWNLOAD"})
 
 
 def tiktok_init_body(m: dict, cfg: dict, video_size: int, creator: dict | None = None) -> dict:
@@ -218,6 +221,10 @@ def _tt_call(path_or_url: str, token: str, body: dict) -> dict:
     return data.get("data", {})
 
 
+def tiktok_fetch_status(publish_id: str, token: str) -> dict:
+    return _tt_call("status/fetch/", token, {"publish_id": publish_id})
+
+
 def tiktok_upload(video: Path, m: dict, cfg: dict, token: str) -> dict:
     size = video.stat().st_size
     if size > TT_MAX_SINGLE_CHUNK:
@@ -233,8 +240,23 @@ def tiktok_upload(video: Path, m: dict, cfg: dict, token: str) -> dict:
         "Content-Range": f"bytes 0-{size - 1}/{size}"})
     with urllib.request.urlopen(put, timeout=600):
         pass
-    status = _tt_call("status/fetch/", token, {"publish_id": init["publish_id"]})
-    return {"publish_id": init["publish_id"], "status": status.get("status"), "mode": cfg["tiktok"]["mode"]}
+    publish_id = init["publish_id"]
+    mode = cfg["tiktok"]["mode"]
+    status = {}
+    for delay in ((0, 3, 6, 12) if mode == "inbox" else (0,)):
+        if delay:
+            time.sleep(delay)
+        try:
+            status = tiktok_fetch_status(publish_id, token)
+        except (OSError, RuntimeError, KeyError, ValueError):
+            if mode != "inbox":
+                raise
+            # PUT war erfolgreich. Keine neue Übertragung, Status später mit derselben ID prüfen.
+            break
+        if status.get("status") not in TT_PENDING:
+            break
+    return {"publish_id": publish_id, "status": status.get("status"), "mode": mode,
+            **({"fail_reason": status["fail_reason"]} if status.get("fail_reason") else {})}
 
 
 # ---------- Ablauf ----------

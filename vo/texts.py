@@ -13,6 +13,7 @@ from .clip_game import GAME_NAMES, hashtags
 YT_TITLE_MAX = 100
 TIKTOK_CAPTION_MAX = 2200
 TIKTOK_HASHTAG_MAX = 5
+TIKTOK_FIXED_TAGS = ("#fy", "#fyp")
 
 # Nur belegbare Themen aus dem Clip-Titel oder einer bereits erkannten Szene ableiten.
 _ANGLES = (
@@ -112,6 +113,14 @@ def tiktok_description(brief: dict, cfg: dict) -> str:
     return (brief.get("caption") or generated).strip()
 
 
+def _tiktok_hashtags(candidates: list[str]) -> list[str]:
+    fixed = set(TIKTOK_FIXED_TAGS)
+    tags = [t for t in _uniq(h if h.startswith("#") else "#" + h
+                            for h in candidates if h and not h.startswith("@"))
+            if re.fullmatch(r"#\w+", t) and t.casefold() not in fixed]
+    return tags[:TIKTOK_HASHTAG_MAX - len(TIKTOK_FIXED_TAGS)] + list(TIKTOK_FIXED_TAGS)
+
+
 def build_texts(brief: dict, cfg: dict) -> dict:
     tcfg = cfg["texts"]
     topic = brief.get("topic", "GTA 6").strip()
@@ -158,12 +167,12 @@ def build_texts(brief: dict, cfg: dict) -> dict:
     desc_lines += ["", " ".join(yt_tags)]
     description = "\n".join(desc_lines)
 
-    if sum(t.startswith("#") for t in _uniq(extra_tags)) > TIKTOK_HASHTAG_MAX:
-        raise ValueError("Die Pflicht-Hashtags überschreiten das TikTok-Limit.")
-    tt_tags = []
-    for tag in _uniq(extra_tags + tt_base + [_tag(k).lower() for k in keywords]):
-        if not tag.startswith("#") or sum(t.startswith("#") for t in tt_tags) < TIKTOK_HASHTAG_MAX:
-            tt_tags.append(tag)
+    if sum(t.startswith("#") and t.casefold() not in TIKTOK_FIXED_TAGS
+           for t in _uniq(extra_tags)) > TIKTOK_HASHTAG_MAX - len(TIKTOK_FIXED_TAGS):
+        raise ValueError("TikTok-Limit: Die Pflicht-Tags passen nicht zusammen mit #fy und #fyp.")
+    tt_tags = _tiktok_hashtags(extra_tags + tt_base[:1] + [creator_tag] + tt_base +
+                               [_tag(k).lower() for k in keywords])
+    tt_tags += [t for t in _uniq(extra_tags) if t.startswith("@")]
     attribution = ""
     if streamer:
         attribution = f"\n🎥 Clip von {streamer['name']}: {allowlist.channel_url(streamer)}"
@@ -215,6 +224,8 @@ def tiktok_caption_problems(caption: str) -> list[str]:
         problems.append("Beschreibung fehlt oder enthält Hashtags/Handles.")
     if not 0 < len(tags) <= TIKTOK_HASHTAG_MAX or not all(re.fullmatch(r"#\w+", t) for t in tags):
         problems.append(f"Hashtag-Zeile muss 1–{TIKTOK_HASHTAG_MAX} Hashtags und sonst nichts enthalten.")
+    if not set(TIKTOK_FIXED_TAGS).issubset(t.casefold() for t in tags):
+        problems.append("TikTok-Caption braucht #fy und #fyp.")
     if len({t.casefold() for t in tags}) != len(tags):
         problems.append("Doppelte Hashtags.")
     for pattern, label in _CAPTION_EXTRAS:
@@ -245,8 +256,7 @@ def tiktok_export_caption(description: str, hashtags: list[str]) -> str:
         if s and s.strip(" .!?…").casefold() not in {u.strip(" .!?…").casefold() for u in unique}:
             unique.append(s)
     desc = " ".join(unique)
-    tags = [t for t in _uniq(h if h.startswith("#") else "#" + h for h in hashtags if h and not h.startswith("@"))
-            if re.fullmatch(r"#\w+", t)][:TIKTOK_HASHTAG_MAX]
+    tags = _tiktok_hashtags(hashtags)
     caption = f"{desc}\n\n{' '.join(tags)}"
     problems = tiktok_caption_problems(caption)
     if problems:
