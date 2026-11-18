@@ -104,6 +104,14 @@ def _caption_from_topic(topic: str, game: str | None, who: str, scene: str) -> t
     return rendered, tag
 
 
+def tiktok_description(brief: dict, cfg: dict) -> str:
+    """Reine Beschreibung (ohne Quelle/Hashtags), aus der build_texts die TikTok-Caption baut."""
+    streamer = allowlist.find(cfg, brief.get("streamer"))
+    generated, _ = _caption_from_topic(brief.get("topic", "GTA 6").strip(), brief.get("game"),
+                                       streamer["name"] if streamer else "dem Creator", brief.get("scene", "other"))
+    return (brief.get("caption") or generated).strip()
+
+
 def build_texts(brief: dict, cfg: dict) -> dict:
     tcfg = cfg["texts"]
     topic = brief.get("topic", "GTA 6").strip()
@@ -180,6 +188,70 @@ def build_texts(brief: dict, cfg: dict) -> dict:
         assert url in texts["youtube"]["description"], "Quellenangabe fehlt in YouTube-Beschreibung"
         assert url in texts["tiktok"]["caption"], "Quellenangabe fehlt in TikTok-Caption"
     return texts
+
+
+# Was nie in einer selbst geposteten TikTok-Caption landen darf: Links, Quellen-/Credit-Zeilen,
+# Standardfragen, Notizen an Enis (Alternativen, Bewertungen, Überschriften).
+_CAPTION_EXTRAS = (
+    (r"https?://|www\.|\b[\w-]+\.(?:tv|com|de|net|gg)/", "URL"),
+    (r"clip von|quelle|originalclip|material:|credit|🎥", "Quellen-/Credit-Zeile"),
+    (r"was hättet ihr|was meint ihr|was sagt ihr|schreibt.*kommentar|👀", "Standardfrage"),
+    (r"alternative|\bpasst\b|hinweis|anmerkung|überschrift|caption|hashtags?:", "Notiz statt Caption"),
+)
+
+
+def _sentences(text: str) -> list[str]:
+    return [s.strip(" .!?…").casefold() for s in re.split(r"(?<=[.!?…])\s+", text) if s.strip(" .!?…")]
+
+
+def tiktok_caption_problems(caption: str) -> list[str]:
+    """Prüft das Format: Beschreibung, eine Leerzeile, eine Zeile nur mit 1–5 Hashtags. Sonst nichts."""
+    problems = []
+    blocks = caption.strip().split("\n\n")
+    if len(blocks) != 2 or "\n" in blocks[0].strip() or "\n" in blocks[1].strip():
+        return ["Caption muss genau aus Beschreibung, Leerzeile und einer Hashtag-Zeile bestehen."]
+    desc, tags = blocks[0].strip(), blocks[1].strip().split()
+    if not desc or "#" in desc or "@" in desc:
+        problems.append("Beschreibung fehlt oder enthält Hashtags/Handles.")
+    if not 0 < len(tags) <= TIKTOK_HASHTAG_MAX or not all(re.fullmatch(r"#\w+", t) for t in tags):
+        problems.append(f"Hashtag-Zeile muss 1–{TIKTOK_HASHTAG_MAX} Hashtags und sonst nichts enthalten.")
+    if len({t.casefold() for t in tags}) != len(tags):
+        problems.append("Doppelte Hashtags.")
+    for pattern, label in _CAPTION_EXTRAS:
+        if re.search(pattern, caption, re.IGNORECASE):
+            problems.append(f"Unerlaubter Zusatz: {label}.")
+    sents = _sentences(desc)
+    if len(set(sents)) != len(sents):
+        problems.append("Doppelter Text in der Beschreibung.")
+    words = desc.split()
+    half = len(words) // 2
+    if half >= 3 and words[:half] == words[half:2 * half]:
+        problems.append("Doppelter Text in der Beschreibung.")
+    if len(caption) > TIKTOK_CAPTION_MAX:
+        problems.append("Caption zu lang.")
+    return problems
+
+
+def tiktok_export_caption(description: str, hashtags: list[str]) -> str:
+    """Caption zum Selbstposten: nur Beschreibung + eine Hashtag-Zeile. Quelle bleibt intern."""
+    desc = re.sub(r"https?://\S+", "", description)
+    desc = " ".join(line.strip() for line in desc.splitlines()
+                    if line.strip() and not re.search(r"clip von|originalclip|quelle|material:|🎥", line, re.I))
+    desc = re.sub(r"(?<!\w)[#@]\w+", "", desc)
+    desc = re.sub(r"\s*👀?\s*was hättet ihr gemacht\?", "", desc, flags=re.I)
+    desc = " ".join(desc.split())
+    unique: list[str] = []
+    for s in re.split(r"(?<=[.!?…])\s+", desc):
+        if s and s.strip(" .!?…").casefold() not in {u.strip(" .!?…").casefold() for u in unique}:
+            unique.append(s)
+    desc = " ".join(unique)
+    tags = [t for t in _uniq(h if h.startswith("#") else "#" + h for h in hashtags if h and not h.startswith("@"))
+            if re.fullmatch(r"#\w+", t)][:TIKTOK_HASHTAG_MAX]
+    caption = f"{desc}\n\n{' '.join(tags)}"
+    problems = tiktok_caption_problems(caption)
+    if problems:
+        raise ValueError(" ".join(problems))
+    return caption
 
 
 def validate_texts(texts: dict) -> None:

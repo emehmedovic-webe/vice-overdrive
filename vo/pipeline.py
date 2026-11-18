@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .common import iso, now_utc, write_json
 from .render import render_short
-from .texts import build_texts
+from .texts import build_texts, tiktok_description
 
 
 def make_short(brief: dict, cfg: dict, shorts_root: Path, base_dir: Path, short_id: str,
@@ -18,7 +18,8 @@ def make_short(brief: dict, cfg: dict, shorts_root: Path, base_dir: Path, short_
                 "synthetic": result["rights"]["type"] == "synthetic",
                 "source": source_url or brief["source"], "rights": result["rights"], "file": result["file"],
                 "video": result["video"], "texts": texts, "credit": texts.get("credit", ""),
-                "streamer": brief.get("streamer"), "published": {}}
+                "streamer": brief.get("streamer"), "published": {},
+                "tiktok_description": tiktok_description(brief, cfg)}
     if brief.get("public_video_url"):
         manifest["public_video_url"] = brief["public_video_url"]
     write_json(out / "manifest.json", manifest)
