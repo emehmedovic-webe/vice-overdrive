@@ -2,7 +2,7 @@
   "youtube_channel": "@viceoverdrive6",
   "tiktok_account": "@viceoverdrive",
   "clip_allowlist": {
-    "_hinweis": "Nur Clips dieser Kanäle werden gesucht und dürfen geschnitten werden. active=false = nur vorgemerkt. proof = Beleg der Clipper-Freigabe (VOD-Link + Zeitstempel der Ansage, Discord-Link o. Ä.). Ohne proof kein Schnitt. required_tags = Pflicht-Tags aus den Regeln des Clipper-Programms, landen automatisch in jeder Caption.",
+    "_hinweis": "Nur Clips dieser Kanäle werden gesucht und dürfen geschnitten werden. active=false = nur vorgemerkt. proof = Beleg der Clipper-Freigabe (VOD-Link + Zeitstempel der Ansage, Discord-Link o. Ä.). Ohne proof kein Schnitt. required_tags = Pflicht-Tags aus den Regeln des Clipper-Programms, landen automatisch in jeder Caption. youtube_handle = YouTube-Kanal, den das Radar zusätzlich (nur lesend) durchsucht.",
     "streamers": [
       {
         "twitch_login": "montanablack88",
@@ -10,7 +10,8 @@
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe)."
+        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe).",
+        "youtube_handle": "@MontanaBlack"
       },
       {
         "twitch_login": "eligella",
@@ -18,7 +19,8 @@
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "Clipper-Programm laut Enis im Stream angesagt."
+        "notes": "Clipper-Programm laut Enis im Stream angesagt.",
+        "youtube_handle": "@Eligella"
       },
       {
         "twitch_login": "xrohat",
@@ -34,7 +36,8 @@
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt auch auf Kick; das Radar sieht nur Twitch."
+        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt auch auf Kick; das Radar sieht nur Twitch.",
+        "youtube_handle": "@xQc"
       },
       {
         "twitch_login": "ishowspeed",
@@ -43,7 +46,8 @@
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: das Twitch-Radar findet hier kaum/keine Clips, Material per Brief einbringen. Quellenangabe verweist auf YouTube."
+        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: wird über youtube_handle gesucht. Quellenangabe verweist auf YouTube.",
+        "youtube_handle": "@IShowSpeed"
       }
     ]
   },
@@ -61,7 +65,8 @@
     "max_clips_per_source": 50,
     "min_view_delta": 1,
     "top_n": 25,
-    "dedupe_window_seconds": 30
+    "dedupe_window_seconds": 30,
+    "youtube_videos_per_channel": 15
   },
   "render": {
     "width": 1080,

@@ -8,8 +8,10 @@ Nur Python-Standardbibliothek + ffmpeg. Auf dem Arbeits-Mac wird nichts installi
 1. **Radar** `python -m vo radar` – sucht Clips **nur** bei den Streamern der Allowlist
    (`config.json` → `clip_allowlist`, derzeit montanablack88, eligella, xrohat, xqc, ishowspeed) und behält mit
    `gta_filter` nur Clips aus „Grand Theft Auto V“ (inkl. GTA RP) und „Grand Theft Auto VI“.
-   Andere Kanäle und Spiele fallen raus. IShowSpeed streamt fast nur auf YouTube, xQc auch auf Kick:
-   Das Radar sieht nur Twitch, Material von dort per Brief einbringen. Logins, die Twitch nicht kennt, stehen oben im Bericht.
+   Andere Kanäle und Spiele fallen raus. Zusätzlich durchsucht es die YouTube-Kanäle (`youtube_handle`)
+   der Streamer nach neuen GTA-Videos (Titel/Beschreibung/Tags), nur lesend über die YouTube Data API
+   (~3 Einheiten pro Kanal, kein teures search.list). Braucht das Secret `YT_API_KEY` (der Upload-Zugang darf nicht lesen); ohne Schlüssel wird YouTube übersprungen.
+   Kick wird nicht durchsucht. Logins, die Twitch nicht kennt, stehen oben im Bericht.
    Fasst Duplikate zusammen (gleiche Clip-ID, gleiches VOD ±30 s,
    gleicher Kanal + gleicher Titel) und sortiert nach **Zuwachs der Aufrufe seit dem letzten Check**.
    Ergebnis: `data/radar/radar-*.md`. **Nur zum Entdecken** – es wird nichts heruntergeladen.
@@ -39,6 +41,7 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
 |---|---|---|
 | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | Radar | dev.twitch.tv/console → Anwendung registrieren (Twitch-Konto mit 2FA nötig) |
 | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` | YouTube-Upload | Google Cloud Console: Projekt anlegen (ohne Abrechnungskonto), „YouTube Data API v3“ aktivieren, OAuth-Client (Typ „Web“, Redirect `https://developers.google.com/oauthplayground`) anlegen; Refresh-Token im OAuth 2.0 Playground mit eigenen Client-Daten und Scope `https://www.googleapis.com/auth/youtube.upload` erzeugen – alles im Browser, keine Installation |
+| `YT_API_KEY` | Radar auf YouTube (nur lesen) | Google Cloud Console, Projekt vice-overdrive → APIs & Dienste → Anmeldedaten → „Anmeldedaten erstellen“ → API-Schlüssel; auf „YouTube Data API v3“ beschränken. Kostenlos, keine Abrechnung nötig |
 | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | TikTok-Upload | developers.tiktok.com → App „vice-overdrive“ → Produkte *Login Kit* + *Content Posting API*, Scopes `user.info.basic`, `video.upload`, `video.publish` |
 | `TIKTOK_REFRESH_TOKEN` | TikTok-Upload | über `site/callback.html` (Anmelden) + PowerShell-Befehl, den die Seite anzeigt – nichts installieren, gilt 365 Tage |
 

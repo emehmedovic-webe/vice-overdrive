@@ -17,6 +17,7 @@ from vo.publish import blocked_reason, make_batch, publish, tiktok_init_body, yo
 from vo.render import RightsError, check_rights  # noqa: E402
 from vo.texts import build_texts  # noqa: E402
 from vo.twitch import Helix, dedupe, run_radar  # noqa: E402
+from vo.youtube_radar import YouTubeReader, is_gta  # noqa: E402
 
 CFG = load_config()
 NOW = datetime(2026, 11, 17, 12, 0, tzinfo=timezone.utc)
@@ -107,6 +108,58 @@ class RadarTests(unittest.TestCase):
             r = run_radar(CFG, Path(tmp) / "s.json", Path(tmp) / "r", client=Helix("i", "s", fetch=fake), now=NOW)
             self.assertEqual(r["missing_logins"], ["xrohat"])
             self.assertIn("nicht gefunden: xrohat", next(Path(tmp, "r").glob("*.md")).read_text())
+
+    def test_youtube_videos_join_ranking_read_only(self):
+        calls = []
+
+        def fake_yt(method, url, headers=None, params=None, **kw):
+            calls.append((method, url, params))
+            self.assertEqual(method, "GET")                      # nur lesen
+            self.assertEqual(params.get("key"), "k")
+            if url.endswith("/channels"):
+                if params["forHandle"] == "@xQc":
+                    return {"items": []}                         # Handle unbekannt
+                return {"items": [{"id": "UC" + params["forHandle"][1:],
+                                   "contentDetails": {"relatedPlaylists": {"uploads": "UU" + params["forHandle"][1:]}}}]}
+            if url.endswith("/playlistItems"):
+                return {"items": [{"contentDetails": {"videoId": params["playlistId"] + n}} for n in ("1", "2", "3")]}
+            if url.endswith("/videos"):
+                out = []
+                for vid in params["id"].split(","):
+                    title = {"1": "GTA 6 RP Chaos", "2": "Minecraft Stream", "3": "Grand Theft Auto alt"}[vid[-1]]
+                    hours = 400 if vid.endswith("3") else 3
+                    out.append({"id": vid, "snippet": {"title": title, "description": "", "channelTitle": vid[2:-1],
+                                "publishedAt": (NOW - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")},
+                                "statistics": {"viewCount": "5000" if "IShowSpeed" in vid else "300"},
+                                "contentDetails": {"duration": "PT45S"}})
+                return {"items": out}
+            raise AssertionError(url)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            r = run_radar(CFG, Path(tmp) / "s.json", Path(tmp) / "r", client=Helix("i", "s", fetch=FakeTwitch()),
+                          now=NOW, youtube=YouTubeReader(api_key="k", fetch=fake_yt))
+            yt = [c for c in r["top"] if c["platform"] == "youtube"]
+            self.assertEqual({c["id"] for c in yt}, {"yt:UUIShowSpeed1", "yt:UUMontanaBlack1", "yt:UUEligella1"})
+            self.assertEqual(r["top"][0]["id"], "yt:UUIShowSpeed1")   # meiste Aufrufe vorn
+            self.assertEqual(r["top"][0]["streamer_login"], "ishowspeed")
+            self.assertEqual(r["youtube"]["missing_handles"], ["@xQc"])
+            self.assertEqual(r["youtube"]["skipped_not_gta"], 3)       # Minecraft je Kanal
+            self.assertFalse([u for _, u, _ in calls if u.endswith("/search")])  # kein teures search.list
+            self.assertIn("Handle nicht gefunden: @xQc", next(Path(tmp, "r").glob("*.md")).read_text())
+
+    def test_youtube_error_does_not_break_twitch(self):
+        def broken(*a, **k):
+            raise RuntimeError("HTTP 403 bei GET channels")
+        with tempfile.TemporaryDirectory() as tmp:
+            r = run_radar(CFG, Path(tmp) / "s.json", Path(tmp) / "r", client=Helix("i", "s", fetch=FakeTwitch()),
+                          now=NOW, youtube=YouTubeReader(api_key="k", fetch=broken))
+            self.assertTrue(r["top"])
+            self.assertIn("FEHLER", r["youtube"]["status"])
+
+    def test_gta_detection(self):
+        self.assertTrue(is_gta({"snippet": {"title": "Monte in GTA RP"}}))
+        self.assertTrue(is_gta({"snippet": {"title": "x", "tags": ["Grand Theft Auto VI"]}}))
+        self.assertFalse(is_gta({"snippet": {"title": "Fortnite mit Freunden"}}))
 
     def test_inactive_streamer_not_searched(self):
         cfg = copy.deepcopy(CFG)

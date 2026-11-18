@@ -126,7 +126,12 @@ def rank(clips: list[dict], state: dict, now) -> list[dict]:
     return ranked
 
 
-def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None = None, now=None) -> dict:
+_NO_YT = object()
+
+
+def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None = None, now=None,
+              youtube=_NO_YT) -> dict:
+    """youtube: YouTubeReader, None (YouTube auslassen) oder weglassen (aus Umgebung lesen)."""
     client = client or Helix.from_env()
     now = now or now_utc()
     rcfg = cfg["radar"]
@@ -160,8 +165,24 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
             if allowed_games and clip.get("game_id") not in allowed_games:
                 skipped_not_gta += 1
                 continue
-            found.append({**clip, "found_via": [f"allowlist:{user['login'].lower()}"],
+            found.append({**clip, "platform": "twitch", "found_via": [f"allowlist:{user['login'].lower()}"],
                           "streamer_login": user["login"].lower()})
+
+    yt_info = {"status": "übersprungen (Secret YT_API_KEY fehlt)", "missing_handles": [],
+               "skipped_not_gta": 0, "found": 0}
+    if youtube is _NO_YT:
+        from .youtube_radar import YouTubeReader
+        youtube = YouTubeReader.from_env()
+    if youtube is not None:
+        from .youtube_radar import find_videos
+        try:
+            yt = find_videos(cfg, youtube, window_start, gta_only=bool(gcfg.get("enabled")))
+        except RuntimeError as exc:  # YouTube-Fehler sollen das Twitch-Ergebnis nicht verhindern
+            yt_info["status"] = f"FEHLER: {str(exc)[:200]}"
+        else:
+            found.extend(yt["found"])
+            yt_info = {"status": "ok", "missing_handles": yt["missing_handles"],
+                       "skipped_not_gta": yt["skipped_not_gta"], "found": len(yt["found"])}
 
     unique = dedupe(found, rcfg["dedupe_window_seconds"])
     ranked = [c for c in rank(unique, state, now) if c["view_delta"] >= rcfg["min_view_delta"]]
@@ -175,11 +196,12 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
         "missing_logins": missing_logins,
         "gta_categories": gta_ids,
         "skipped_not_gta": skipped_not_gta,
+        "youtube": yt_info,
         "raw_found": len(found),
         "after_dedupe": len(unique),
         "hinweis": "Nur Kanäle aus der Allowlist. Schnitt erst, wenn für den Streamer ein Beleg (proof) in config.json steht.",
         "top": [{k: c.get(k) for k in (
-            "id", "url", "broadcaster_name", "streamer_login", "game_id", "title", "language", "view_count", "view_delta",
+            "id", "url", "platform", "broadcaster_name", "streamer_login", "game_id", "title", "language", "view_count", "view_delta",
             "velocity_per_hour", "is_new", "created_at", "duration", "found_via", "duplicates")}
             for c in top],
     }
@@ -200,11 +222,13 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
              f"{report['skipped_not_gta']} Clips aus anderen Spielen verworfen", "",
              f"Allowlist: {', '.join(wanted)}"
              + (f" · **bei Twitch nicht gefunden: {', '.join(missing_logins)}**" if missing_logins else ""), "",
+             f"YouTube: {yt_info['status']} · {yt_info['found']} GTA-Videos · {yt_info['skipped_not_gta']} ohne GTA verworfen"
+             + (f" · **Handle nicht gefunden: {', '.join(yt_info['missing_handles'])}**" if yt_info["missing_handles"] else ""), "",
              "> " + report["hinweis"], "",
-             "| # | Zuwachs | /h | Aufrufe | Kanal | Titel | Quelle |", "|---|---|---|---|---|---|---|"]
+             "| # | Zuwachs | /h | Aufrufe | Plattform | Kanal | Titel | Quelle |", "|---|---|---|---|---|---|---|---|"]
     for i, c in enumerate(report["top"], 1):
         title = (c["title"] or "").replace("|", "/")
         lines.append(f"| {i} | +{c['view_delta']} | {c['velocity_per_hour']} | {c['view_count']} | "
-                     f"{c['broadcaster_name']} | [{title}]({c['url']}) | {', '.join(c['found_via'])} |")
+                     f"{c.get('platform') or 'twitch'} | {c['broadcaster_name']} | [{title}]({c['url']}) | {', '.join(c['found_via'])} |")
     (out_dir / f"radar-{stamp}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return report
