@@ -334,7 +334,7 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
         previous = old.get(sid, {})
         final_states = {"attempted", "sent", "unconfirmed"}
         wants_youtube = mode != "off" and previous.get("status") not in final_states
-        wants_tiktok = tiktok_inbox and previous.get("tiktok_status") not in final_states
+        wants_tiktok = tiktok_inbox and previous.get("tiktok_status") not in final_states | {"exported"}
         if (not game or (live and not (wants_youtube or wants_tiktok))
                 or (not live and previous)):
             continue

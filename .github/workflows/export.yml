@@ -1,0 +1,67 @@
+# TikTok-Export: übrige GTA-6-Clips fertig geschnitten als ZIP (pro Clip ein Ordner mit
+# video.mp4 + caption.txt) zum selbst Posten. Exportierte Clips schickt der Autopilot nie
+# mehr an TikTok; bereits gesendete Entwürfe sind nicht dabei. YouTube bleibt automatisch.
+name: VICE OVERDRIVE TikTok-Export
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Höchstens so viele Clips"
+        type: number
+        default: 15
+concurrency:
+  group: vice-overdrive-autopilot
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zustand laden
+        uses: actions/cache/restore@v4
+        with:
+          path: data/autopilot
+          key: autopilot-state-${{ github.run_id }}
+          restore-keys: autopilot-state-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Werkzeuge installieren (nur im Runner)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core zip
+          python3 -m venv "${RUNNER_TEMP}/vice-overdrive-venv"
+          "${RUNNER_TEMP}/vice-overdrive-venv/bin/python" -m pip install -q 'yt-dlp[default]==2026.10.26'
+      - name: Export schneiden
+        env:
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
+          python3 -m vo export --out tiktok-export --limit "${LIMIT:-15}"
+      - name: Zustand sichern
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/autopilot
+            !data/autopilot/**/*.mp4
+            !data/autopilot/**/*.mkv
+            !data/autopilot/**/*.webm
+            !data/autopilot/**/*.part
+            !data/autopilot/**/*.lock
+            !data/autopilot/state/tiktok-token.json
+          key: autopilot-state-${{ github.run_id }}
+      - name: Download-Seite (Release) mit ZIP anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! ls tiktok-export/*/video.mp4 >/dev/null 2>&1; then echo "Keine neuen Clips."; exit 0; fi
+          stamp=$(date -u +%Y-%m-%d_%H%M)
+          (cd tiktok-export && zip -q -r "../TikTok-Export_${stamp}.zip" .)
+          gh release create "tiktok-export-${stamp}" "TikTok-Export_${stamp}.zip" \
+            --title "TikTok-Export ${stamp} UTC" --notes-file tiktok-export/CAPTIONS.md --latest=false

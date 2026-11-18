@@ -480,6 +480,36 @@ class AutopilotTests(unittest.TestCase):
                                    clock=lambda: NOW)
         self.assertEqual(result["status"], "no_suitable_clip")
 
+    def test_export_skips_sent_drafts_and_blocks_later_tiktok(self):
+        from vo.export import run_export
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "autopilot"
+            write_json(root / "state" / "autopilot.json", {"last_attempt": None, "clips": {
+                "twitch-race-a": {"tiktok_status": "sent", "source_ids": ["race-a"], "video_id": "v1",
+                                  "vod_offset": 100}}})
+
+            def render(report, cfg, data, *, limit, handoff):
+                row = report["top"][0]
+                out = data / "shorts" / ("twitch-" + row["id"])
+                out.mkdir(parents=True)
+                (out / "short.mp4").write_bytes(b"mp4")
+                (out / "tiktok.txt").write_text("Caption #GTA6\n", encoding="utf-8")
+                return {"rendered": ["twitch-" + row["id"]]}
+
+            items = [self._item("race-a", video="v1"), self._item("race-b", video="v2")]
+            rows = run_export(CFG, root, Path(tmp) / "export",
+                              radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
+            self.assertEqual(len(rows), 1)
+            folder = Path(tmp) / "export" / rows[0]["file"]
+            self.assertTrue((folder / "video.mp4").is_file())
+            self.assertIn("#GTA6", (folder / "caption.txt").read_text(encoding="utf-8"))
+            state = json.loads((root / "state" / "autopilot.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["clips"]["twitch-race-b"]["tiktok_status"], "exported")
+            # Ein zweiter Export liefert denselben Clip nicht noch einmal.
+            again = run_export(CFG, root, Path(tmp) / "export2",
+                               radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
+            self.assertEqual(again, [])
+
     def test_file_mode_skips_missing_or_conflicting_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             data = Path(tmp)
