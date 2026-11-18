@@ -66,7 +66,7 @@ Der Autopilot hat getrennte Zuständigkeiten:
 2. **Schnitt-Agent:** FFmpeg rendert 1080×1920 mit höchstens 60 Sekunden.
 3. **Beschreibungs-Agent:** Entnimmt der **fertigen** MP4 fünf Frames. Ein lokales Ollama-Bildmodell schreibt einen konkreten deutschen Hook, eine Beobachtung und eine passende Community-Frage. Keine Bilddaten gehen an einen KI-Cloud-Dienst. Audio wird nicht transkribiert.
 4. **Hashtag-Agent:** Bestätigt GTA V oder GTA VI anhand der Radar-Quelle und wählt zum erkannten Szenentyp passende Tags. Kein `#GTA6` für GTA-V-Clips. Pflicht-Tags, Streamer-Name und Kanal-Link bleiben erhalten.
-5. **Upload-Agent:** Sendet maximal einen passenden Short je zwei Stunden über die offizielle YouTube-API. Nur mit ausdrücklich gewählter Sichtbarkeit und geprüftem Zielkanal. Unsichere Uploads werden nicht blind wiederholt. TikTok bleibt Inbox, der Autopilot speichert dafür MP4 und Caption, sendet oder postet dort aber nicht.
+5. **Upload-Agent:** Sendet maximal einen passenden Short pro Stunde über die offizielle YouTube-API. Nur mit ausdrücklich gewählter Sichtbarkeit und geprüftem Zielkanal. Unsichere Uploads werden nicht blind wiederholt. TikTok kann separat per offizieller Inbox-API einen Entwurf empfangen. Die Caption liegt lokal; die Inbox-API setzt sie nicht und veröffentlicht nichts.
 
 ### Start auf deinem privaten PC
 
@@ -95,14 +95,31 @@ python -m vo autopilot --env-file data/autopilot.env
 python -m vo autopilot --watch --youtube public --env-file data/autopilot.env
 ```
 
+Mit `--tiktok-inbox` wird derselbe fertige Clip zusätzlich an TikToks Inbox geschickt.
+Dafür lokal einen **frischen** `TIKTOK_REFRESH_TOKEN`, `TIKTOK_CLIENT_KEY` und
+`TIKTOK_CLIENT_SECRET` hinterlegen. TikTok muss `video.upload` erlaubt haben.
+Bei einem reinen Inbox-Token zusätzlich `TIKTOK_OPEN_ID` aus der OAuth-Antwort des eigenen
+Kontos verwenden. Bestehende Tokens mit `video.publish` können das Konto alternativ
+über den Creator-Info-Endpunkt bestätigen. Die App veröffentlicht dadurch nichts direkt.
+Rotierte Refresh-Tokens bleiben in `data/autopilot/state/tiktok-token.json` auf dem privaten Rechner.
+TikTok begrenzt offene Inbox-Uploads. Bei abgewiesenem Inbox-Upload prüft der nächste Lauf erneut,
+bei einem unklaren Übertragungsstatus wird derselbe Clip nicht blind doppelt gesendet.
+
 Statt `public` gibt es `private`, `unlisted` und `off` (Standard). `--watch` startet den
-ersten Durchgang sofort und wiederholt ihn nach zwei Stunden. Die Sperre im lokalen Zustand verhindert
-einen verfrühten Upload nach einem Neustart. Der Rechner und Ollama müssen laufen, auch im Zwei-Stunden-Takt.
-Für automatischen Start nach der Windows-Anmeldung kannst du den obigen Befehl in die Aufgabenplanung
+ersten Durchgang sofort und prüft danach stündlich. Die Sperre im lokalen Zustand verhindert
+einen verfrühten Upload nach einem Neustart. Der Rechner und Ollama müssen dabei laufen.
+Auf Windows startet `start-autopilot-windows.cmd` nach Einrichtung der obigen Python-Umgebung
+und `data/autopilot.env` den Stundenlauf ohne Upload. Verwende
+`start-autopilot-windows.cmd public` nur nach erfolgreichem Test und bewusster Upload-Freigabe.
+Mit `start-autopilot-windows.cmd public inbox` wird zusätzlich TikToks Inbox aktiviert.
+Für automatischen Start nach der Windows-Anmeldung kannst du die CMD-Datei in die Aufgabenplanung
 eintragen (Arbeitsordner = Repo-Ordner). Führe nur eine Instanz pro Datenordner aus.
 
 Bei unklarer Szene, widersprüchlicher Spielangabe, fehlendem Beleg oder wiederholtem Beschreibungstext
-wird kein Upload ausgelöst. Es gibt also nicht zwangsläufig zwölf Uploads pro Tag.
+wird kein Upload ausgelöst. Es gibt also nicht zwangsläufig 24 Uploads pro Tag.
+Der Autopilot löscht bei jedem Lauf seine eigenen `short.mp4` ab zwei Stunden Dateialter
+aus `data/autopilot/shorts/`. Quellvideos, andere MP4s, Beschreibungen, Manifeste und der
+Upload-Verlauf bleiben erhalten. Die Bereinigung ändert keine bereits hochgeladenen YouTube-Videos.
 Shorts und Texte liegen in `data/autopilot/shorts/`, letzter Status in
 `data/autopilot/state/last-run.json`. Erst ein Ergebnis `youtube_sent` mit Video-ID ist ein bestätigter Upload.
 Mit `--youtube off` wird nicht auf YouTube zugegriffen, um etwas zu senden. Es fallen keine Kosten für

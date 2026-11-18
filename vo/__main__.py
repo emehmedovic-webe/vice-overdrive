@@ -2,7 +2,7 @@
 
   python -m vo radar                       Twitch-Radar (braucht TWITCH_CLIENT_ID/SECRET)
   python -m vo radar-clips                 Radar → Download → Short → Dry-Run (nie Upload)
-  python -m vo autopilot --watch           Lokal alle 2 Stunden vorbereiten, ohne Upload
+  python -m vo autopilot --watch           Lokal stündlich vorbereiten, ohne Upload
   python -m vo make briefs/<datei>.json    Short aus eigener/lizenzierter Datei schneiden
   python -m vo batch                       Freigabe-Batch für alle offenen Shorts anlegen
   python -m vo publish youtube|tiktok      Dry-Run (Standard); --live nur nach Freigabe
@@ -81,8 +81,9 @@ def main(argv=None) -> None:
     auto.add_argument("--limit", type=int, choices=range(1, MAX_LIMIT + 1), default=DEFAULT_LIMIT)
     from .clip_insights import MODELS
     pilot = sub.add_parser("autopilot", help="Lokal schneiden, MP4 analysieren und optional zu YouTube hochladen")
-    pilot.add_argument("--watch", action="store_true", help="Nach jedem Lauf zwei Stunden warten und wiederholen")
+    pilot.add_argument("--watch", action="store_true", help="Stündlich erneut prüfen (höchstens ein Upload pro Stunde)")
     pilot.add_argument("--youtube", choices=("off", "private", "unlisted", "public"), default="off")
+    pilot.add_argument("--tiktok-inbox", action="store_true", help="Entwürfe über TikToks offizielle Inbox-API senden")
     pilot.add_argument("--model", choices=MODELS, default=MODELS[0])
     pilot.add_argument("--env-file", type=Path, help="Lokale KEY=VALUE-Datei, niemals ins Repo committen")
     mk = sub.add_parser("make"); mk.add_argument("brief")
@@ -112,7 +113,7 @@ def main(argv=None) -> None:
         try:
             if a.env_file:
                 load_local_env(a.env_file)
-            return run(cfg, data, mode=a.youtube, model=a.model, watch=a.watch)
+            return run(cfg, data, mode=a.youtube, model=a.model, watch=a.watch, tiktok_inbox=a.tiktok_inbox)
         except (OSError, ValueError, RuntimeError) as exc:
             # Netzfehler werden schon in run_cycle abgefangen. Keine OAuth-Antworten loggen.
             raise SystemExit(str(exc)) from None

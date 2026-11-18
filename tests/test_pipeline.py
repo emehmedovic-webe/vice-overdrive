@@ -15,7 +15,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from vo import allowlist  # noqa: E402
-from vo.autopilot import run_cycle  # noqa: E402
+from vo.autopilot import prune_mp4, run_cycle, tiktok_local_token  # noqa: E402
 from vo.clip_game import clip_game, hashtags, youtube_game  # noqa: E402
 from vo.clip_insights import NoVisualEvidence, describe  # noqa: E402
 from vo.common import load_config, write_json  # noqa: E402
@@ -410,7 +410,9 @@ class AutopilotTests(unittest.TestCase):
             args["channel"] = lambda tok, handle: handle == CFG["youtube_channel"]
             self.assertEqual(self._cycle(data, self._item(), **args)["status"], "youtube_sent")
             self.assertEqual(self._cycle(data, self._item("race-b", offset=110), **args)["status"], "cooldown")
-            args["clock"] = lambda: NOW + timedelta(hours=3)
+            args["clock"] = lambda: NOW + timedelta(minutes=59)
+            self.assertEqual(self._cycle(data, self._item("race-b", offset=110), **args)["status"], "cooldown")
+            args["clock"] = lambda: NOW + timedelta(hours=1)
             self.assertEqual(self._cycle(data, self._item("race-b", offset=110), **args)["status"], "no_suitable_clip")
             self.assertEqual(len(sends), 1)
 
@@ -456,6 +458,71 @@ class AutopilotTests(unittest.TestCase):
             with self.assertRaises(NoVisualEvidence):
                 describe(video, 1, "gta5", "qwen3-vl:4b",
                          chat=lambda _: {"message": {"content": '{"usable": false}'}})
+
+    def test_tiktok_upload_is_optional_and_inbox_only(self):
+        calls = []
+
+        def fake_upload(video, manifest, cfg, token):
+            self.assertEqual(cfg["tiktok"]["mode"], "inbox")
+            self.assertEqual(token, "fake")
+            self.assertIn("roter Wagen", manifest["texts"]["tiktok"]["caption"])
+            calls.append(video)
+            return {"publish_id": "fake", "status": "SEND_TO_USER_INBOX", "mode": "inbox"}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp)
+            kw = {"tiktok_inbox": True, "tt_token": lambda *a: "fake", "tt_upload": fake_upload}
+            result = self._cycle(data, self._item(), **kw)
+            self.assertEqual(result["tiktok"]["status"], "tiktok_inbox_accepted")
+            self.assertEqual(result["youtube"]["status"], "off_or_already_attempted")
+            self.assertEqual(self._cycle(data, self._item(), clock=lambda: NOW + timedelta(hours=1),
+                                         **kw)["status"], "no_suitable_clip")
+            self.assertEqual(len(calls), 1)
+
+    def test_tiktok_refresh_rotation_stays_local_and_reuses_new_token(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
+            "TIKTOK_CLIENT_KEY": "key", "TIKTOK_CLIENT_SECRET": "fake",
+            "TIKTOK_REFRESH_TOKEN": "old", "TIKTOK_OPEN_ID": "account-id",
+        }), patch("vo.autopilot.http_json", return_value={
+            "access_token": "test-access", "refresh_token": "rotated",
+            "open_id": "account-id", "scope": "video.upload",
+        }) as ask:
+            data = Path(tmp)
+            self.assertEqual(tiktok_local_token(data, "@viceoverdrive"), "test-access")
+            self.assertEqual(tiktok_local_token(data, "@viceoverdrive"), "test-access")
+            self.assertEqual(ask.call_args_list[0].kwargs["form"]["refresh_token"], "old")
+            self.assertEqual(ask.call_args_list[1].kwargs["form"]["refresh_token"], "rotated")
+
+    def test_only_owned_autopilot_mp4s_two_hours_old_are_pruned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve() / "autopilot"
+            old = (NOW - timedelta(hours=2)).timestamp()
+
+            def mp4(short_id, stamp, rights="clipper_program"):
+                out = root / "shorts" / short_id
+                write_json(out / "manifest.json", {"short_id": short_id, "file": "short.mp4",
+                                                 "rights": {"type": rights}})
+                video = out / "short.mp4"
+                video.write_bytes(b"offline test")
+                os.utime(video, (stamp, stamp))
+                return video
+
+            expired = mp4("twitch-expired", old)
+            recent = mp4("youtube-recent", old + 1)
+            other = mp4("twitch-own", old - 10, "own")
+            original = expired.parent / "original.mp4"
+            original.write_bytes(b"keep")
+            os.utime(original, (old - 50, old - 50))
+            description = expired.parent / "youtube.txt"
+            description.write_text("bleibt", encoding="utf-8")
+            sibling = root.parent / "short.mp4"
+            sibling.write_bytes(b"keep")
+            self.assertEqual(prune_mp4(root, now=NOW), 1)
+            self.assertFalse(expired.exists())
+            self.assertTrue(all(p.exists() for p in (
+                recent, other, description, original, sibling, expired.parent / "manifest.json",
+            )))
+            self.assertEqual(prune_mp4(root, now=NOW), 0)
 
     def test_channel_identity_check_matches_the_authorized_handle(self):
         with patch("vo.publish.http_json", return_value={"items": [{"snippet": {"customUrl": "@ViceOverdrive6"}}]}):
