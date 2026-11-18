@@ -12,6 +12,59 @@ from .clip_game import GAME_NAMES, hashtags
 
 YT_TITLE_MAX = 100
 TIKTOK_CAPTION_MAX = 2200
+TIKTOK_HASHTAG_MAX = 5
+
+# Nur belegbare Themen aus dem Clip-Titel oder einer bereits erkannten Szene ableiten.
+_ANGLES = (
+    (r"\b(?:radio|sender|funk|radiosender)\b", "radio", "#GTARadio"),
+    (r"\b(?:verfolgungsjagd|polizeiflucht|polizeiverfolgung|(?:police|cop)\s+chase)\b", "pursuit", "#Verfolgungsjagd"),
+    (r"\b(?:autodiebstahl|autoklau|grand theft auto for|steals? (?:a |an |the )?car)\b", "theft", "#GTAFahrzeuge"),
+    (r"\b(?:aim|zielt|zielen|schuss|treffer)\b", "aim", "#GTAFail"),
+    (r"\b(?:npc|npc[s]?|dialog|konter)\b", "dialog", "#GTANPC"),
+    (r"\b(?:startet|erste[rsmn]?\s+(?:start|gameplay)|first (?:ever )?gameplay|spielt (?:zum )?ersten)\b", "launch", "#GTAGameplay"),
+    (r"\b(?:fahrt|fährt|driving|am steuer|lenkrad)\b", "drive", "#GTAFahrzeuge"),
+    (r"\b(?:grafik|optik|graphics|sieht .* aus)\b", "look", "#GTADetails"),
+)
+_COPY = {
+    "radio": (
+        "„{topic}“. Hier lohnt sich das Zuhören: {who} hat in {game} einen Radio-Moment erwischt, der für sich schon einen eigenen Clip verdient.",
+        "Bei „{topic}“ läuft das Radio nicht nur nebenbei. Der Ausschnitt von {who} zeigt, wie gut ein kurzer Funkmoment in {game} für sich stehen kann.",
+    ),
+    "pursuit": (
+        "Für {who} steht in {game} die Polizei im Mittelpunkt. „{topic}“ ist der kurze Ausschnitt aus der Verfolgung, direkt aus dem Stream geschnitten.",
+        "„{topic}“ bringt die Verfolgung von {who} auf den Punkt. Der Clip bleibt bei diesem einen Moment aus {game} und lässt den Rest des Streams außen vor.",
+    ),
+    "theft": (
+        "„{topic}“ ist der Moment, in dem der Spieltitel für {who} Programm wird. Der Ausschnitt zeigt genau den Autodiebstahl aus der Session in {game}.",
+        "Hier ist der Autoklau aus dem Stream von {who}. Unter „{topic}“ landet der Moment direkt als kurzer Ausschnitt aus der Session in {game}.",
+    ),
+    "aim": (
+        "„{topic}“ rückt bei {who} ausgerechnet das Zielen in den Mittelpunkt. Der kurze Ausschnitt aus {game} bleibt bei diesem Moment statt bei der ganzen Mission.",
+        "In diesem Ausschnitt aus {game} geht es bei {who} ums Aim. „{topic}“ fasst den Moment zusammen, der aus dem Stream einzeln herausgeschnitten wurde.",
+    ),
+    "dialog": (
+        "„{topic}“ rückt das Gespräch in den Vordergrund. In diesem kurzen Ausschnitt aus {game} lohnt es sich, bei {who} besonders auf den Dialog zu achten.",
+        "Der Moment von {who} braucht keine lange Vorgeschichte. „{topic}“ legt den Fokus auf den Dialog, der in diesem kurzen Ausschnitt aus {game} auffällt.",
+    ),
+    "launch": (
+        "„{topic}“ hält den Einstieg von {who} in {game} fest. Wer nicht die ganze Session gesehen hat, bekommt hier einen kurzen Eindruck direkt aus dem Stream.",
+        "Ein früher Blick auf {game} mit {who}. Der Ausschnitt „{topic}“ bleibt beim Einstieg ins Spiel und holt genau diesen Moment aus dem längeren Stream.",
+    ),
+    "drive": (
+        "Bei „{topic}“ gehört der Ausschnitt {who} am Steuer. Der Clip bleibt ganz bei der Fahrt und zeigt einen kurzen Moment aus der Session in {game}.",
+        "Eine Fahrt mit {who} in {game}, festgehalten unter „{topic}“. In diesem Ausschnitt steht das Fahren selbst im Mittelpunkt, direkt aus der Perspektive des Streams.",
+    ),
+    "look": (
+        "„{topic}“ richtet den Blick auf die Optik von {game}. Der Ausschnitt kommt aus dem Stream von {who} und lässt den visuellen Eindruck für sich sprechen.",
+        "Bei „{topic}“ geht es um den ersten Blick auf {game}. Ein kurzer Ausschnitt aus dem Stream von {who}, bei dem sich genaueres Hinschauen lohnt.",
+    ),
+    "other": (
+        "„{topic}“ ist ein kurzer Moment aus {game} bei {who}. Er steht auch ohne die ganze Session für sich und kommt direkt aus dem Stream.",
+        "Wer den Stream von {who} verpasst hat, bekommt hier „{topic}“ als eigenen Ausschnitt. Dieser Clip hält den Moment aus {game} fest, ohne den ganzen Verlauf mitzunehmen.",
+        "Ein einzelner Moment aus {game}: „{topic}“. Der Ausschnitt stammt von {who} und greift genau den Teil des Streams heraus, den der Clip-Titel ankündigt.",
+        "Hier gibt es „{topic}“ aus der Session von {who} in {game}. Der kurze Ausschnitt bleibt bei diesem Moment und braucht dafür keine lange Einleitung.",
+    ),
+}
 
 HOOK_TEMPLATES = [
     "Das hat in GTA 6 keiner kommen sehen 😳",
@@ -21,7 +74,8 @@ HOOK_TEMPLATES = [
 
 
 def _tag(word: str) -> str:
-    return "#" + re.sub(r"[^0-9A-Za-zÄÖÜäöüß]", "", word)
+    clean = re.sub(r"[^0-9A-Za-zÄÖÜäöüß]", "", word)
+    return "#" + clean if clean else ""
 
 
 def _uniq(items):
@@ -30,6 +84,24 @@ def _uniq(items):
         if i and i.lower() not in {o.lower() for o in out}:
             out.append(i)
     return out
+
+
+def _caption_from_topic(topic: str, game: str | None, who: str, scene: str) -> tuple[str, str]:
+    label = re.sub(r"https?://\S+|(?<!\w)[#@]\w+", "", topic)
+    label = " ".join(label.split()[:8])[:100].strip(" \t.!?…")
+    label = label or "GTA-Clipausschnitt"
+    angle, tag = next(((angle, tag) for pattern, angle, tag in _ANGLES
+                       if re.search(pattern, topic, re.IGNORECASE)), ("other", "#GTAClips"))
+    if scene == "pursuit":
+        angle, tag = "pursuit", "#Verfolgungsjagd"
+    variants = _COPY[angle]
+    idx = sum((i + 1) * ord(c) for i, c in enumerate(topic.casefold())) % len(variants)
+    parts = label.split()
+    rendered = variants[idx].format(topic=label, game=GAME_NAMES.get(game, "GTA"), who=who)
+    while len(rendered.split()) > 30 and len(parts) > 1:
+        parts.pop()
+        rendered = variants[idx].format(topic=" ".join(parts) + "…", game=GAME_NAMES.get(game, "GTA"), who=who)
+    return rendered, tag
 
 
 def build_texts(brief: dict, cfg: dict) -> dict:
@@ -47,28 +119,43 @@ def build_texts(brief: dict, cfg: dict) -> dict:
 
     game = brief.get("game")
     yt_base, tt_base = tcfg["base_hashtags_youtube"], tcfg["base_hashtags_tiktok"]
-    follow = "Mehr GTA-6-Shorts: @viceoverdrive6"
+    scene = brief.get("scene", "other")
+    generated, topic_tag = _caption_from_topic(
+        topic, game, streamer["name"] if streamer else "dem Creator", scene)
+    caption_core = (brief.get("caption") or generated).strip()
     if game in GAME_NAMES:
-        yt_base = hashtags(game, brief.get("scene", "other"), "youtube")
-        tt_base = hashtags(game, brief.get("scene", "other"), "tiktok")
-        follow = f"Für mehr {GAME_NAMES[game]}-Clips: {cfg['youtube_channel']}"
-    yt_tags = _uniq(extra_tags + yt_base + [_tag(k) for k in keywords])[:max(6, len(extra_tags) + 3)]
+        yt_base = hashtags(game, scene, "youtube")
+        scene_tags = hashtags(game, scene, "tiktok")[2:-1]
+        tt_base = ["#GTAV" if game == "gta5" else "#GTA6", *scene_tags, topic_tag,
+                   _tag(streamer["name"]) if streamer else "", "#GTAGameplay", "#TwitchClips", "#ViceOverdrive"]
+    creator_tag = _tag(streamer["name"]) if streamer else ""
+    yt_tags = _uniq(extra_tags + yt_base + [topic_tag, creator_tag] + [_tag(k) for k in keywords]
+                   + ["#GTAGameplay", "#GamingClips", "#GameplayHighlights", "#ViceOverdrive"])[:max(8, len(extra_tags) + 4)]
     title = brief.get("title") or f"{topic}: {hook}"
     title = re.sub(r"\s+", " ", title).strip()
     suffix = " #Shorts"
     if len(title) + len(suffix) > YT_TITLE_MAX:
         title = title[: YT_TITLE_MAX - len(suffix) - 1].rstrip() + "…"
     title += suffix
-    desc_lines = [hook, "", brief.get("description", f"{topic} – kurz und knapp auf Deutsch.")]
+    provided = (brief.get("description") or "").strip()
+    if provided.split("\n", 1)[0].strip().casefold() == hook.casefold():
+        provided = provided.partition("\n")[2].strip()
+    if not provided or provided.startswith("Originalclip:") or provided.casefold() == topic.casefold():
+        provided = "\n\n".join(x for x in (generated, provided if provided.startswith("Originalclip:") else "") if x)
+    desc_lines = [provided]
     if streamer:
         desc_lines += ["", f"🎥 Clip von {streamer['name']}: {allowlist.channel_url(streamer)}"]
     elif credit:
         desc_lines += ["", f"Material: {credit}"]
-    desc_lines += ["", follow, "", " ".join(yt_tags)]
+    desc_lines += ["", " ".join(yt_tags)]
     description = "\n".join(desc_lines)
 
-    tt_tags = _uniq(extra_tags + tt_base + [_tag(k).lower() for k in keywords])[:max(8, len(extra_tags) + 4)]
-    caption_core = brief.get("caption") or f"{hook} {topic} 👀 Was hättet ihr gemacht?"
+    if sum(t.startswith("#") for t in _uniq(extra_tags)) > TIKTOK_HASHTAG_MAX:
+        raise ValueError("Die Pflicht-Hashtags überschreiten das TikTok-Limit.")
+    tt_tags = []
+    for tag in _uniq(extra_tags + tt_base + [_tag(k).lower() for k in keywords]):
+        if not tag.startswith("#") or sum(t.startswith("#") for t in tt_tags) < TIKTOK_HASHTAG_MAX:
+            tt_tags.append(tag)
     attribution = ""
     if streamer:
         attribution = f"\n🎥 Clip von {streamer['name']}: {allowlist.channel_url(streamer)}"
