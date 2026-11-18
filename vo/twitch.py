@@ -168,17 +168,21 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
             found.append({**clip, "platform": "twitch", "found_via": [f"allowlist:{user['login'].lower()}"],
                           "streamer_login": user["login"].lower()})
 
-    yt_info = {"status": "übersprungen (kein YT_API_KEY bzw. YouTube-Zugang)", "missing_handles": [],
+    yt_info = {"status": "übersprungen (Secret YT_API_KEY fehlt)", "missing_handles": [],
                "skipped_not_gta": 0, "found": 0}
     if youtube is _NO_YT:
         from .youtube_radar import YouTubeReader
         youtube = YouTubeReader.from_env()
     if youtube is not None:
         from .youtube_radar import find_videos
-        yt = find_videos(cfg, youtube, window_start, gta_only=bool(gcfg.get("enabled")))
-        found.extend(yt["found"])
-        yt_info = {"status": "ok", "missing_handles": yt["missing_handles"],
-                   "skipped_not_gta": yt["skipped_not_gta"], "found": len(yt["found"])}
+        try:
+            yt = find_videos(cfg, youtube, window_start, gta_only=bool(gcfg.get("enabled")))
+        except RuntimeError as exc:  # YouTube-Fehler sollen das Twitch-Ergebnis nicht verhindern
+            yt_info["status"] = f"FEHLER: {str(exc)[:200]}"
+        else:
+            found.extend(yt["found"])
+            yt_info = {"status": "ok", "missing_handles": yt["missing_handles"],
+                       "skipped_not_gta": yt["skipped_not_gta"], "found": len(yt["found"])}
 
     unique = dedupe(found, rcfg["dedupe_window_seconds"])
     ranked = [c for c in rank(unique, state, now) if c["view_delta"] >= rcfg["min_view_delta"]]

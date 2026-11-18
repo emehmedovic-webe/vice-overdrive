@@ -147,6 +147,15 @@ class RadarTests(unittest.TestCase):
             self.assertFalse([u for _, u, _ in calls if u.endswith("/search")])  # kein teures search.list
             self.assertIn("Handle nicht gefunden: @xQc", next(Path(tmp, "r").glob("*.md")).read_text())
 
+    def test_youtube_error_does_not_break_twitch(self):
+        def broken(*a, **k):
+            raise RuntimeError("HTTP 403 bei GET channels")
+        with tempfile.TemporaryDirectory() as tmp:
+            r = run_radar(CFG, Path(tmp) / "s.json", Path(tmp) / "r", client=Helix("i", "s", fetch=FakeTwitch()),
+                          now=NOW, youtube=YouTubeReader(api_key="k", fetch=broken))
+            self.assertTrue(r["top"])
+            self.assertIn("FEHLER", r["youtube"]["status"])
+
     def test_gta_detection(self):
         self.assertTrue(is_gta({"snippet": {"title": "Monte in GTA RP"}}))
         self.assertTrue(is_gta({"snippet": {"title": "x", "tags": ["Grand Theft Auto VI"]}}))

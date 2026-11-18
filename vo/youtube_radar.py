@@ -5,8 +5,10 @@ pro Kanal 1 Einheit für channels.list (Handle → Upload-Playlist), 1 für play
 1 für videos.list (Aufrufe, Länge, Tags). Ein Lauf mit 5 Kanälen kostet also ~15 Einheiten.
 Zum Vergleich: search.list würde 100 Einheiten pro Aufruf kosten und wird deshalb nicht genutzt.
 
-Anmeldung: YT_API_KEY (öffentliche Daten lesen), sonst der vorhandene OAuth-Zugang
-(YT_CLIENT_ID/SECRET/REFRESH_TOKEN). Fehlt beides, wird YouTube übersprungen.
+Anmeldung: YT_API_KEY (API-Schlüssel, liest nur öffentliche Daten, kostenlos, ohne Abrechnung).
+Der Upload-Zugang (YT_REFRESH_TOKEN) reicht NICHT: Er hat nur die Berechtigung youtube.upload,
+Google lehnt Lesezugriffe damit ab (getestet 2026-11-18: 403 ACCESS_TOKEN_SCOPE_INSUFFICIENT).
+Ohne YT_API_KEY wird YouTube übersprungen.
 """
 from __future__ import annotations
 
@@ -29,12 +31,7 @@ class YouTubeReader:
     @classmethod
     def from_env(cls):
         key = os.environ.get("YT_API_KEY", "").strip()
-        if key:
-            return cls(api_key=key)
-        if all(os.environ.get(n, "").strip() for n in ("YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN")):
-            from .publish import youtube_access_token
-            return cls(token=youtube_access_token())
-        return None
+        return cls(api_key=key) if key else None
 
     def get(self, path: str, params: dict) -> dict:
         headers = {}
