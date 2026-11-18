@@ -83,7 +83,15 @@
     "height": 1920,
     "max_seconds": 59,
     "font": "DejaVu Sans",
-    "background": "0x150d21"
+    "background": "0x150d21",
+    "_hinweis": "Gegen 'nicht originale Inhalte' (TikTok, 2026-11-18): großer Gameplay-Ausschnitt, Hook die ganze Zeit oben, stärkster Moment als Vorspann, deutsche Auto-Untertitel, Wasserzeichen.",
+    "fg_height_ratio": 0.7,
+    "hook_whole_clip": true,
+    "teaser_seconds": 1.5,
+    "auto_subtitles": true,
+    "whisper_model": "small",
+    "watermark": "@viceoverdrive",
+    "outro_seconds": 1.2
   },
   "texts": {
     "base_hashtags_youtube": [

@@ -53,7 +53,8 @@ def selftest(cfg: dict, work: Path) -> None:
     m = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     v = m["video"]
     assert (v["width"], v["height"], v["video_codec"], v["audio_codec"]) == (1080, 1920, "h264", "aac"), v
-    assert 5.5 <= v["duration"] <= 6.5, v
+    extra = float(cfg["render"].get("outro_seconds", 0) or 0)  # Abspann kommt zum 6-s-Schnitt dazu
+    assert 5.5 <= v["duration"] <= 6.5 + extra, v
     assert m["texts"]["youtube"]["description"] != m["texts"]["tiktok"]["caption"]
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", "4", "-i", str(out / "short.mp4"),
                     "-frames:v", "1", str(out / "preview.png")], check=True)
