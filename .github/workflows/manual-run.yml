@@ -13,7 +13,7 @@ permissions:
   contents: read
 jobs:
   autopilot:
-    # Ein Autopilot-Durchgang mit PRIVATEM YouTube-Upload (höchstens 1 Video).
+    # Ein Autopilot-Durchgang mit PRIVATEM YouTube-Upload (höchstens 4 Videos).
     if: inputs.step == 'autopilot-privat-test'
     uses: ./.github/workflows/autopilot.yml
     with:

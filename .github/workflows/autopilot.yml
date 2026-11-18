@@ -1,9 +1,13 @@
 # VICE OVERDRIVE Autopilot auf GitHub Actions (Entscheidung von Enis am 2026-11-18).
 # Ein Durchgang: Radar → Download → Schnitt → höchstens 1 Upload.
-# Der Stundenlauf (schedule) ist absichtlich AUS, bis der private Test-Upload geklappt hat
-# und Enis ihn freigibt.
+# Stundenlauf: freigegeben von Enis am 2026-11-18 (Repo öffentlich, YouTube bis zu 4 pro Stunde,
+# TikTok höchstens 5 Inbox-Entwürfe pro Tag). Läuft erst, wenn diese Datei auf main liegt.
+# Sichtbarkeit ohne Code ändern: Repo-Variable VO_YOUTUBE_MODE (private/unlisted/public/off),
+# TikTok-Inbox abschalten: Repo-Variable VO_TIKTOK_INBOX=false.
 name: VICE OVERDRIVE Autopilot
 on:
+  schedule:
+    - cron: '7 * * * *'
   workflow_dispatch:
     inputs:
       youtube:
@@ -31,7 +35,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Zustand laden (verhindert doppelte Uploads)
@@ -51,8 +55,8 @@ jobs:
       - name: Autopilot (ein Durchgang)
         env:
           VO_ACTIONS_UPLOAD: "1"
-          YOUTUBE_MODE: ${{ inputs.youtube || 'private' }}
-          TIKTOK_INBOX: ${{ inputs.tiktok_inbox && 'true' || 'false' }}
+          YOUTUBE_MODE: ${{ inputs.youtube || vars.VO_YOUTUBE_MODE || 'public' }}
+          TIKTOK_INBOX: ${{ github.event_name == 'schedule' && (vars.VO_TIKTOK_INBOX || 'true') || (inputs.tiktok_inbox && 'true' || 'false') }}
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
@@ -66,7 +70,8 @@ jobs:
           export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
           extra=""
           if [ "$TIKTOK_INBOX" = "true" ]; then extra="--tiktok-inbox"; fi
-          python3 -m vo autopilot --text-source files --youtube "$YOUTUBE_MODE" $extra
+          python3 -m vo autopilot --text-source files --youtube "$YOUTUBE_MODE" $extra \
+            --max-uploads 4 --min-gap-minutes 30
       - name: Zustand sichern
         if: always()
         uses: actions/cache/save@v4
@@ -78,6 +83,7 @@ jobs:
             !data/autopilot/**/*.webm
             !data/autopilot/**/*.part
             !data/autopilot/**/*.lock
+            !data/autopilot/state/tiktok-token.json
           key: autopilot-state-${{ github.run_id }}
       - name: Fertigen Short zur Kontrolle ablegen (3 Tage, privat)
         if: always()

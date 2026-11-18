@@ -87,6 +87,10 @@ def main(argv=None) -> None:
     pilot.add_argument("--text-source", choices=("ollama", "files"), default="ollama",
                        help="files nutzt die TXT-Dateien zum Clip und braucht kein Ollama")
     pilot.add_argument("--model", choices=MODELS, default=MODELS[0])
+    pilot.add_argument("--max-uploads", type=int, choices=range(1, 6), default=1,
+                       help="Höchstens so viele Shorts pro Durchgang (1-5)")
+    pilot.add_argument("--min-gap-minutes", type=int, default=60,
+                       help="Mindestabstand zum letzten Upload-Versuch in Minuten")
     pilot.add_argument("--env-file", type=Path, help="Lokale KEY=VALUE-Datei, niemals ins Repo committen")
     mk = sub.add_parser("make"); mk.add_argument("brief")
     sub.add_parser("batch")
@@ -117,7 +121,8 @@ def main(argv=None) -> None:
             if a.env_file:
                 load_local_env(a.env_file)
             return run(cfg, data, mode=a.youtube, model=a.model, watch=a.watch,
-                       tiktok_inbox=a.tiktok_inbox, text_source=a.text_source)
+                       tiktok_inbox=a.tiktok_inbox, text_source=a.text_source,
+                       max_uploads=a.max_uploads, min_gap_minutes=max(0, a.min_gap_minutes))
         except (OSError, ValueError, RuntimeError) as exc:
             # Netzfehler werden schon in run_cycle abgefangen. Keine OAuth-Antworten loggen.
             raise SystemExit(str(exc)) from None

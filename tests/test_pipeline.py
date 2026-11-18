@@ -351,11 +351,12 @@ class AutopilotTests(unittest.TestCase):
         defaults = {"mode": "off", "clock": lambda: NOW, "render": fake_render, "analyze": fake_analyze,
                     "token": lambda: self.fail("Ohne Live-Modus keine Anmeldung"),
                     "upload": lambda *a: self.fail("Kein echter Upload im Test")}
+        items = kw.pop("items", None) or [item]
         defaults.update(kw)
         with patch.dict(os.environ, {"GITHUB_ACTIONS": ""}), patch("vo.autopilot.probe", return_value={
             "width": 1080, "height": 1920, "video_codec": "h264", "duration": 23,
         }):
-            return run_cycle(CFG, root, radar=lambda *a: {"top": [item], "gta_categories": GAMES},
+            return run_cycle(CFG, root, radar=lambda *a: {"top": items, "gta_categories": GAMES},
                              **defaults)
 
     def test_distinguishes_games_and_conflicting_labels(self):
@@ -434,6 +435,25 @@ class AutopilotTests(unittest.TestCase):
                                  analyze=lambda *a: self.fail("Kein Ollama"),
                                  token=lambda: "fake", channel=lambda *a: True, upload=fake_upload)
             self.assertEqual(result["status"], "youtube_sent")
+
+    def test_batch_uploads_several_distinct_clips_per_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sent = []
+            items = [self._item("race-a", video="v1"), self._item("race-b", video="v2"),
+                     self._item("race-c", video="v3")]
+            def analyze(path, duration, game, model):
+                return {"scene": "pursuit", "evidence_frames": [2, 4],
+                        "headline": "Die Abkürzung zwischen zwei Streifenwagen",
+                        "observation": f"Szene {path.parent.name}: ein Wagen zieht vorbei.",
+                        "question": "Wärt ihr an der Stelle links abgebogen?"}
+
+            result = self._cycle(Path(tmp), None, items=items, mode="private", max_uploads=2,
+                                 analyze=analyze,
+                                 token=lambda: "fake", channel=lambda *a: True,
+                                 upload=lambda v, b, a: sent.append(v.parent.name) or f"id-{len(sent)}")
+            self.assertEqual(result["status"], "batch")
+            self.assertEqual(result["youtube_sent"], 2)
+            self.assertEqual(len(sent), 2)
 
     def test_file_mode_skips_missing_or_conflicting_text(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -29,6 +29,7 @@ INTERVAL = timedelta(hours=1)
 MP4_MAX_AGE = timedelta(hours=2)
 MAX_CANDIDATES = 3
 TEXT_SOURCES = ("ollama", "files")
+STOP_STATUSES = {"youtube_auth_failed", "youtube_unconfirmed", "youtube_wrong_channel"}
 TEXT_TAG = re.compile(r"(?<!\w)[#@]\w+")
 LOCAL_ENV = {"TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "YT_API_KEY",
              "YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN",
@@ -290,7 +291,7 @@ def _send_youtube(video, manifest, cfg, mode, state, state_path, rec, clock, tok
 
 
 def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0], tiktok_inbox: bool = False,
-              text_source: str = "ollama",
+              text_source: str = "ollama", max_uploads: int = 1, min_gap: timedelta = INTERVAL,
               radar=run_radar, render=prepare_clips, analyze=describe,
               token=youtube_access_token, channel=youtube_is_channel, upload=youtube_upload,
               tt_token=tiktok_local_token, tt_upload=tiktok_upload, clock=now_utc) -> dict:
@@ -309,7 +310,7 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
     state = read_json(state_path, {"last_attempt": None, "clips": {}})
     old = state["clips"]
     if live and state.get("last_attempt"):
-        remaining = INTERVAL - (clock() - parse_iso(state["last_attempt"]))
+        remaining = min_gap - (clock() - parse_iso(state["last_attempt"]))
         if remaining > timedelta(0):
             return {"status": "cooldown", "wait_seconds": math.ceil(remaining.total_seconds())}
     try:
@@ -318,6 +319,7 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
         return {"status": "radar_failed"}
 
     attempts = 0
+    results: list[dict] = []
     for clip in report["top"]:
         try:
             sid, url, streamer = source_for(clip, cfg)
@@ -334,7 +336,7 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
         others = [v for k, v in old.items() if k != sid]
         if any(_same_moment(clip, v, cfg["radar"]["dedupe_window_seconds"]) for v in others):
             continue
-        if attempts >= MAX_CANDIDATES:
+        if attempts >= MAX_CANDIDATES * max_uploads:
             break
         out = data / "shorts" / sid
         if out.exists() and not (out / "short.mp4").is_file():
@@ -380,18 +382,30 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
         yt = (_send_youtube(video, manifest, cfg, mode, state, state_path, rec, clock, token, channel, upload)
               if wants_youtube else {"status": "off_or_already_attempted"})
         if not tiktok_inbox:
-            return yt
-        tt = (_send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, tt_token, tt_upload)
-              if wants_tiktok else {"status": "off_or_already_attempted"})
-        return {"status": "api_finished", "short_id": sid, "youtube": yt, "tiktok": tt}
+            result = yt
+        else:
+            tt = (_send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, tt_token, tt_upload)
+                  if wants_tiktok else {"status": "off_or_already_attempted"})
+            result = {"status": "api_finished", "short_id": sid, "youtube": yt, "tiktok": tt}
+        results.append(result)
+        # Anmeldefehler oder unklarer Upload: in diesem Durchgang nichts weiter senden.
+        if (len(results) >= max_uploads or yt.get("status") in STOP_STATUSES):
+            break
+    if len(results) == 1:
+        return results[0]
+    if results:
+        return {"status": "batch", "results": results,
+                "youtube_sent": sum(r.get("status") == "youtube_sent" or
+                                    (r.get("youtube") or {}).get("status") == "youtube_sent" for r in results)}
     return {"status": "no_suitable_clip", "examined": attempts}
 
 
 def run(cfg: dict, data: Path, *, mode: str, model: str, watch: bool,
-        tiktok_inbox: bool = False, text_source: str = "ollama") -> int:
+        tiktok_inbox: bool = False, text_source: str = "ollama", max_uploads: int = 1,
+        min_gap_minutes: int = 60) -> int:
     root = data.resolve() / "autopilot"
     print(f"Autopilot · YouTube-Kanal {cfg['youtube_channel']} · Sichtbarkeit: {mode} · "
-          f"maximal ein Short pro Stunde · MP4-Aufbewahrung: 2 Stunden · TikTok-Inbox: {tiktok_inbox}.",
+          f"höchstens {max_uploads} Short(s) pro Durchgang · MP4-Aufbewahrung: 2 Stunden · TikTok-Inbox: {tiktok_inbox}.",
           flush=True)
     try:
         with lock(root / "state" / "run.lock"):
@@ -399,12 +413,13 @@ def run(cfg: dict, data: Path, *, mode: str, model: str, watch: bool,
                 started = time.monotonic()
                 removed = prune_mp4(root)
                 result = {**run_cycle(cfg, root, mode=mode, model=model, tiktok_inbox=tiktok_inbox,
-                                      text_source=text_source), "mp4_removed": removed}
+                                      text_source=text_source, max_uploads=max_uploads,
+                                      min_gap=timedelta(minutes=min_gap_minutes)), "mp4_removed": removed}
                 atomic_json(root / "state" / "last-run.json", {**result, "at": iso(now_utc())})
                 print(json.dumps(result, ensure_ascii=False), flush=True)
                 if not watch:
-                    return 1 if result["status"] in {"radar_failed", "analysis_unavailable", "youtube_auth_failed",
-                                                    "youtube_unconfirmed", "youtube_wrong_channel"} else 0
+                    statuses = {result["status"], *(r.get("status") for r in result.get("results", []))}
+                    return 1 if statuses & ({"radar_failed", "analysis_unavailable"} | STOP_STATUSES) else 0
                 next_check = max(1, INTERVAL.total_seconds() - (time.monotonic() - started))
                 time.sleep(result.get("wait_seconds", next_check))
     except KeyboardInterrupt:

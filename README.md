@@ -58,6 +58,18 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
   Der Lauf lädt zu keiner Videoplattform hoch. Für einen echten TikTok-Entwurf oder YouTube-Upload gelten weiterhin
   die separate Freigabe und der explizite `--live`-Befehl für die jeweilige Plattform.
 
+## Autopilot auf GitHub Actions (Dauerbetrieb)
+
+Workflow „VICE OVERDRIVE Autopilot“ (`.github/workflows/autopilot.yml`) läuft stündlich (Minute 7):
+Radar → Download → Schnitt → bis zu 4 YouTube-Uploads pro Durchgang (YouTube-API: höchstens 100 Uploads/Tag)
+und TikTok-Inbox-Entwürfe (TikTok: höchstens 5 offene Entwürfe in 24 Stunden, fertig posten in der App).
+Nichts wird auf einem eigenen Rechner gespeichert. Der Zustand gegen Doppel-Uploads liegt im Actions-Cache
+(ohne Videos und ohne TikTok-Token). Sichtbarkeit per Repo-Variable `VO_YOUTUBE_MODE`
+(`public` Standard, `private`, `unlisted`, `off`), TikTok aus mit `VO_TIKTOK_INBOX=false`.
+Stoppen: Actions → „VICE OVERDRIVE Autopilot“ → „…“ → Disable workflow.
+Ein privater Probelauf: Workflow „manueller Lauf“ → `autopilot-privat-test`.
+Ungefähr 4–5 Minuten pro Clip. Deshalb ist das Repo öffentlich (unbegrenzte Actions-Minuten).
+
 ## Lokaler Autopilot (privater Rechner, nicht auf GitHub Actions)
 
 Der Autopilot hat getrennte Zuständigkeiten:
