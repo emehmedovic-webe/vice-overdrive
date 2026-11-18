@@ -32,6 +32,8 @@ GTA6_ONLY = copy.deepcopy(CFG)
 # Bestehende Tests decken beide Spiele ab; der Live-Filter steht in config.json (nur GTA VI).
 CFG["gta_filter"]["categories"] = ["Grand Theft Auto V", "Grand Theft Auto VI"]
 CFG["gta_filter"]["games"] = ["gta5", "gta6"]
+for _s in CFG["clip_allowlist"]["streamers"]:
+    _s["active"] = True  # Live sind xQc/Speed pausiert (nur deutsche Streamer); Tests prüfen alle Pfade.
 CFG["tiktok"]["mode"] = "inbox"  # Live: direct + SELF_ONLY; Tests decken beide Modi ab.
 NOW = datetime(2026, 11, 17, 12, 0, tzinfo=timezone.utc)
 
@@ -82,6 +84,11 @@ class FakeTwitch:
 
 
 class RadarTests(unittest.TestCase):
+    def test_live_allowlist_is_german_only(self):
+        from vo import allowlist
+        active = {s["twitch_login"] for s in allowlist.streamers(GTA6_ONLY)}
+        self.assertEqual(active, {"montanablack88", "eligella", "xrohat", "trymacs"})
+
     def test_dedupe_merges_same_vod_window_and_same_id(self):
         groups = dedupe([clip("x", "1", 10), clip("y", "1", 20, offset=115), clip("z", "1", 5, offset=500, title="anders"),
                          {**clip("x", "1", 10), "found_via": ["allowlist:x"]}])
@@ -157,11 +164,11 @@ class RadarTests(unittest.TestCase):
             r = run_radar(CFG, Path(tmp) / "s.json", Path(tmp) / "r", client=Helix("i", "s", fetch=FakeTwitch()),
                           now=NOW, youtube=YouTubeReader(api_key="k", fetch=fake_yt))
             yt = [c for c in r["top"] if c["platform"] == "youtube"]
-            self.assertEqual({c["id"] for c in yt}, {"yt:UUIShowSpeed1", "yt:UUMontanaBlack1", "yt:UUEligella1"})
+            self.assertEqual({c["id"] for c in yt}, {"yt:UUIShowSpeed1", "yt:UUMontanaBlack1", "yt:UUEligella1", "yt:UUTrymacs1"})
             self.assertEqual(r["top"][0]["id"], "yt:UUIShowSpeed1")   # meiste Aufrufe vorn
             self.assertEqual(r["top"][0]["streamer_login"], "ishowspeed")
             self.assertEqual(r["youtube"]["missing_handles"], ["@xQc"])
-            self.assertEqual(r["youtube"]["skipped_not_gta"], 3)       # Minecraft je Kanal
+            self.assertEqual(r["youtube"]["skipped_not_gta"], 4)       # Minecraft je Kanal
             self.assertFalse([u for _, u, _ in calls if u.endswith("/search")])  # kein teures search.list
             self.assertIn("Handle nicht gefunden: @xQc", next(Path(tmp, "r").glob("*.md")).read_text())
 
@@ -215,7 +222,7 @@ class RadarClipTests(unittest.TestCase):
 
     def test_youtube_approval_and_canonical_url(self):
         cfg = copy.deepcopy(CFG)
-        cfg["clip_allowlist"]["streamers"][-1]["youtube_download_proof"] = "Testbeleg – keine echte Freigabe"
+        next(e for e in cfg["clip_allowlist"]["streamers"] if e["twitch_login"] == "ishowspeed")["youtube_download_proof"] = "Testbeleg – keine echte Freigabe"
         item = {**self._youtube(), "url": "https://youtu.be/AbCd0123_-x?list=ignored"}
         sid, url, streamer = source_for(item, cfg)
         self.assertEqual((sid, url, streamer),
@@ -271,7 +278,7 @@ class RadarClipTests(unittest.TestCase):
     def test_radar_clips_render_and_hand_off_offline(self):
         cfg = copy.deepcopy(CFG)
         cfg["render"].update(width=720, height=1280, max_seconds=1)
-        cfg["clip_allowlist"]["streamers"][-1]["youtube_download_proof"] = "Nur Test"
+        next(e for e in cfg["clip_allowlist"]["streamers"] if e["twitch_login"] == "ishowspeed")["youtube_download_proof"] = "Nur Test"
         report = {"top": [self._twitch(), self._youtube()]}
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

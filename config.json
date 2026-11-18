@@ -33,21 +33,30 @@
       {
         "twitch_login": "xqc",
         "name": "xQc",
-        "active": true,
+        "active": false,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt auch auf Kick; das Radar sieht nur Twitch.",
+        "notes": "Pausiert: Enis will nur deutsche Streamer (2026-11-18). US-Streamer, Clipper-Programm laut Enis angesagt. Streamt auch auf Kick; das Radar sieht nur Twitch.",
         "youtube_handle": "@xQc"
       },
       {
         "twitch_login": "ishowspeed",
         "name": "IShowSpeed",
         "channel_url": "https://www.youtube.com/@IShowSpeed",
+        "active": false,
+        "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
+        "required_tags": [],
+        "notes": "Pausiert: Enis will nur deutsche Streamer (2026-11-18). US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: wird über youtube_handle gesucht. Quellenangabe verweist auf YouTube.",
+        "youtube_handle": "@IShowSpeed"
+      },
+      {
+        "twitch_login": "trymacs",
+        "name": "Trymacs",
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "US-Streamer, Clipper-Programm laut Enis angesagt. Streamt fast nur auf YouTube: wird über youtube_handle gesucht. Quellenangabe verweist auf YouTube.",
-        "youtube_handle": "@IShowSpeed"
+        "notes": "Deutscher Streamer, Clips laut Enis freigegeben (Bestätigung im Projekt-Thread 2026-11-18).",
+        "youtube_handle": "@Trymacs"
       }
     ]
   },
