@@ -1,4 +1,4 @@
-"""Schnitt: 9:16-Short (1080×1920, H.264/AAC) mit Hook oben und eingebrannten deutschen Untertiteln.
+"""Schnitt: 9:16-Short (1080×1920, H.264/AAC) mit Hook und optionalen Untertiteln.
 
 Verwendet NUR Dateien, deren Rechte im Brief bestätigt sind:
   rights.type = "own"       → eigene Aufnahme
@@ -35,7 +35,7 @@ def check_rights(brief: dict, cfg: dict | None = None) -> dict:
         entry = allowlist.find(cfg or {}, brief.get("streamer"))
         if not entry or not entry.get("active", True):
             raise RightsError(f"Kein Schnitt: Streamer {brief.get('streamer')!r} steht nicht (aktiv) in der Allowlist.")
-        if not entry.get("proof"):
+        if not allowlist.has_proof(entry):
             raise RightsError(f"Kein Schnitt: Für {entry['name']} fehlt der Beleg (proof) in config.json "
                               "→ z. B. VOD-Link mit Zeitstempel der Clipper-Ansage.")
         rights = {**rights, "streamer": entry["twitch_login"].lower(), "proof": entry["proof"]}
@@ -106,7 +106,8 @@ def probe(path: Path) -> dict:
             "duration": float(data["format"]["duration"])}
 
 
-def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Path) -> dict:
+def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Path,
+                 *, require_subtitles: bool = True) -> dict:
     for binary in ("ffmpeg", "ffprobe"):
         if not shutil.which(binary):
             raise SystemExit(f"{binary} fehlt.")
@@ -120,7 +121,7 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
     subs = brief.get("subtitles") or []
     if brief.get("subtitles_srt"):
         subs = parse_srt(base_dir / brief["subtitles_srt"])
-    if not subs:
+    if require_subtitles and not subs:
         raise ValueError("Untertitel fehlen (subtitles oder subtitles_srt im Brief).")
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -137,9 +138,11 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
            "-ss", str(start), "-t", str(duration), "-i", str(src)]
     if not has_audio:
         cmd += ["-f", "lavfi", "-t", str(duration), "-i", "anullsrc=r=48000:cl=stereo"]
+    video_limit = r.get("max_video_bitrate")
+    vbv = ["-maxrate", video_limit, "-bufsize", video_limit] if video_limit else []
     cmd += ["-filter_complex", vf, "-map", "[v]", "-map", "0:a:0" if has_audio else "1:a:0",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-r", "30",
-            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-r", "30", *vbv,
+            "-t", str(duration), "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart",
             "-shortest", "short.mp4"]
     subprocess.run(cmd, cwd=out_dir, check=True)
     info = probe(out_dir / "short.mp4")

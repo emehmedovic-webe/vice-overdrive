@@ -87,6 +87,8 @@ def find_videos(cfg: dict, reader: YouTubeReader, since, *, gta_only: bool = Tru
         uploads = ch["contentDetails"]["relatedPlaylists"]["uploads"]
         for v in reader.videos(reader.recent_video_ids(uploads, per_channel)):
             sn = v["snippet"]
+            if sn.get("channelId") != ch["id"] or sn.get("liveBroadcastContent") in {"live", "upcoming"}:
+                continue
             if parse_iso(sn["publishedAt"]) < since:
                 continue
             if gta_only and not is_gta(v):

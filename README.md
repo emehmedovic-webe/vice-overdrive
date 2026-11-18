@@ -1,7 +1,7 @@
 # VICE OVERDRIVE – Shorts-Pipeline (0 €)
 
 YouTube `@viceoverdrive6` · TikTok `@viceoverdrive` · Budget 0 € · keine Zahlungsmethode, keine Testabos, keine Bezahl-APIs.
-Nur Python-Standardbibliothek + ffmpeg. Auf dem Arbeits-Mac wird nichts installiert.
+Python-Standardbibliothek + ffmpeg, für automatische Radar-Downloads zusätzlich yt-dlp. Auf dem Arbeits-Mac wird nichts installiert.
 
 ## Ablauf
 
@@ -14,7 +14,7 @@ Nur Python-Standardbibliothek + ffmpeg. Auf dem Arbeits-Mac wird nichts installi
    Kick wird nicht durchsucht. Logins, die Twitch nicht kennt, stehen oben im Bericht.
    Fasst Duplikate zusammen (gleiche Clip-ID, gleiches VOD ±30 s,
    gleicher Kanal + gleicher Titel) und sortiert nach **Zuwachs der Aufrufe seit dem letzten Check**.
-   Ergebnis: `data/radar/radar-*.md`. **Nur zum Entdecken** – es wird nichts heruntergeladen.
+   Ergebnis: `data/radar/radar-*.md`. Der Befehl `radar` selbst lädt nichts herunter.
 2. **Brief** anlegen (Vorlage `briefs/BEISPIEL-eigene-aufnahme.json`): Quelldatei, Ausschnitt,
    Rechte (`own` oder `licensed` + `proof`), Thema, optional Hook, Untertitel (Liste oder .srt).
    Ohne bestätigte Rechte bricht der Schnitt ab. Twitch-Material nur mit dokumentierter Freigabe.
@@ -34,6 +34,29 @@ Nur Python-Standardbibliothek + ffmpeg. Auf dem Arbeits-Mac wird nichts installi
 
 Test: `python -m vo selftest` (synthetisch, offline) und `python -m unittest discover -s tests`.
 Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
+
+## Radar-Treffer automatisch schneiden
+
+- In **Actions → VICE OVERDRIVE manueller Lauf → Run workflow** den Schritt **radar-clips** wählen.
+  Der Befehl `python -m vo radar-clips --limit 3` startet Radar und Schnitt direkt hintereinander.
+  Standard sind bis zu drei Downloads in Radar-Reihenfolge. `radar` bleibt als separate Vorschau verfügbar.
+- **Twitch:** Download nur für aktive Allowlist-Kanäle mit `proof`. **YouTube:** Treffer bleiben im
+  Radar. Für den direkten Download zusätzlich `youtube_download_proof` beim jeweiligen Streamer
+  eintragen, falls eine schriftliche Download-Genehmigung von YouTube vorliegt
+  (siehe [YouTube API Developer Policies, Abschnitt III.E.1](https://developers.google.com/youtube/terms/developer-policies#e-handling-youtube-data-and-content)).
+  Der Streamer-Beleg allein ersetzt diese nicht. Alternativ kann eine vom Creator bereitgestellte
+  Videodatei über den bestehenden manuellen Brief mit passendem Rechtebeleg verarbeitet werden.
+- Der Short nutzt die ersten höchstens 59 Sekunden (1080×1920, H.264/AAC). Er bekommt einen Hook
+  aus dem Clip-Titel, aber **keine automatisch transkribierten Untertitel**. Name, voller Kanal-Link
+  und Pflicht-Tags stehen in den plattformspezifischen Texten.
+- Der Lauf räumt temporäre Downloads auf und liefert fertige MP4s, Captions und einen
+  **noch nicht freigegebenen** Batch als GitHub-Artefakt. Die Zusammenfassung
+  `data/radar/radar-clips-result.json` nennt übersprungene und fehlgeschlagene Treffer.
+  Ein nicht erreichbarer Clip stoppt die übrigen Downloads nicht. YouTube kann Downloads von
+  Cloud-Runnern ablehnen. Dieser Lauf verwendet keine Cookies, Proxies oder bezahlten Dienste.
+- Die Übergabe an `vo.publish` prüft **TikTok-Inbox und YouTube Shorts im Dry-Run**.
+  Der Lauf lädt zu keiner Videoplattform hoch. Für einen echten TikTok-Entwurf oder YouTube-Upload gelten weiterhin
+  die separate Freigabe und der explizite `--live`-Befehl für die jeweilige Plattform.
 
 ## Secrets (nur als Umgebungsvariablen / GitHub-Repository-Secrets, nie in Chat oder Repo)
 
@@ -65,10 +88,11 @@ Original-Demo: `python3 VICE-OVERDRIVE-0EUR.py` (unverändert übernommen).
 
 ## GitHub Actions
 
-- `.github/workflows/test.yml` – manuell starten (Actions → „VICE OVERDRIVE Test“ → Run workflow).
-  Läuft auf `ubuntu-latest`, führt Demo, Unit-Tests und Selbsttest aus, prüft 1080×1920/H.264,
-  legt die Testvideos 3 Tage als privates Artefakt ab (Name endet auf NICHT-POSTEN).
-- `.github/workflows/manual-run.yml` – manueller Radar- oder Publish-Dry-Run mit Secrets.
+- `.github/workflows/test.yml` – für PRs nach `main` oder manuell. Testet offline ohne Secrets.
+  Keine Testvideos als Artefakte, keine Uploads zu Videoplattformen.
+- `.github/workflows/manual-run.yml` – manueller Radar, Radar-Schnitt oder Dry-Run.
+  Standard-Runner im enthaltenen GitHub-Actions-Kontingent nutzen. Für 0 € Mehrkosten
+  die Ausgabengrenze bei 0 € belassen, falls Abrechnung eingerichtet ist.
 - **Kein Zeitplan.** Actions ist nur für Entwicklung und Test vorgesehen.
 
 ## Dauerbetrieb: bewusst AUS
@@ -83,5 +107,5 @@ Gesucht war eine Laufzeit ohne hinterlegte Zahlungsmethode, die den Betrieb erla
 
 Offen bis zum Dauerbetrieb:
 1. Eine Laufzeit, die ohne Karte rendern darf (z. B. ein eigener, ohnehin laufender Rechner/Raspberry Pi – nicht der Arbeits-Mac).
-2. Laufend eigene oder freigegebene Videodateien – das Radar liefert nur Ideen.
+2. Freigegebene Quellen für regelmäßige Radar-Schnitte.
 3. Untertitel kommen aus Brief/.srt; automatische Transkription ist nicht eingebaut.

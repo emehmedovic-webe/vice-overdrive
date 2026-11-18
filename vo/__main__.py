@@ -1,6 +1,7 @@
 """Kommandozeile:
 
   python -m vo radar                       Twitch-Radar (braucht TWITCH_CLIENT_ID/SECRET)
+  python -m vo radar-clips                 Radar → Download → Short → Dry-Run (nie Upload)
   python -m vo make briefs/<datei>.json    Short aus eigener/lizenzierter Datei schneiden
   python -m vo batch                       Freigabe-Batch für alle offenen Shorts anlegen
   python -m vo publish youtube|tiktok      Dry-Run (Standard); --live nur nach Freigabe
@@ -15,29 +16,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .common import ROOT, iso, load_config, now_utc, write_json
+from .common import ROOT, load_config, write_json
+from .pipeline import make_short
 from .publish import make_batch, publish
-from .render import render_short
-from .texts import build_texts
+from .radar_clips import DEFAULT_LIMIT, MAX_LIMIT, prepare_clips
 
 
 def cmd_make(brief_path: Path, cfg: dict, shorts_root: Path) -> Path:
     brief = json.loads(brief_path.read_text(encoding="utf-8"))
     short_id = brief.get("id") or re.sub(r"[^a-z0-9]+", "-", brief_path.stem.lower())
-    texts = build_texts(brief, cfg)
-    out = shorts_root / short_id
-    result = render_short(brief, texts["hook"], out, cfg, brief_path.parent)
-    manifest = {"short_id": short_id, "created_at": iso(now_utc()),
-                "synthetic": result["rights"]["type"] == "synthetic",
-                "source": brief["source"], "rights": result["rights"], "file": result["file"],
-                "video": result["video"], "texts": texts, "credit": texts.get("credit", ""),
-                "streamer": brief.get("streamer"), "published": {}}
-    if brief.get("public_video_url"):
-        manifest["public_video_url"] = brief["public_video_url"]
-    write_json(out / "manifest.json", manifest)
-    (out / "youtube.txt").write_text(f"{texts['youtube']['title']}\n\n{texts['youtube']['description']}\n", encoding="utf-8")
-    (out / "tiktok.txt").write_text(texts["tiktok"]["caption"] + "\n", encoding="utf-8")
-    print(f"Short fertig: {out/'short.mp4'} ({result['video']})")
+    out = make_short(brief, cfg, shorts_root, brief_path.parent, short_id)
+    print(f"Short fertig: {out/'short.mp4'}")
     return out
 
 
@@ -87,6 +76,8 @@ def main(argv=None) -> None:
     ap.add_argument("--data", default=str(ROOT / "data"), help="Arbeitsordner für Zustand und Ausgaben")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("radar")
+    auto = sub.add_parser("radar-clips", help="Radar-Treffer schneiden, ohne Upload")
+    auto.add_argument("--limit", type=int, choices=range(1, MAX_LIMIT + 1), default=DEFAULT_LIMIT)
     mk = sub.add_parser("make"); mk.add_argument("brief")
     sub.add_parser("batch")
     sub.add_parser("tiktok-revoke-old", help="Alten gespeicherten TikTok-Zugang widerrufen")
@@ -97,10 +88,18 @@ def main(argv=None) -> None:
     a = ap.parse_args(argv)
     cfg = load_config(a.config)
     data = Path(a.data)
-    if a.cmd == "radar":
+    if a.cmd in {"radar", "radar-clips"}:
         from .twitch import run_radar
-        rep = run_radar(cfg, data / "state" / "radar_state.json", data / "radar")
+        try:
+            rep = run_radar(cfg, data / "state" / "radar_state.json", data / "radar")
+        except (OSError, RuntimeError, KeyError):
+            raise SystemExit("Radar konnte nicht laufen. API-Zugriff und Konfiguration prüfen.") from None
         print(f"Radar: {rep['raw_found']} Treffer, {rep['after_dedupe']} nach Dedupe, Top {len(rep['top'])}.")
+        if a.cmd == "radar-clips":
+            result = prepare_clips(rep, cfg, data, limit=a.limit)
+            print(f"Schnitt: {len(result['rendered'])} fertig, {len(result['skipped'])} übersprungen, "
+                  f"{len(result['failed'])} fehlgeschlagen. Kein Upload.")
+            return 1 if result["failed"] and not result["rendered"] else None
     elif a.cmd == "make":
         cmd_make(Path(a.brief), cfg, data / "shorts")
     elif a.cmd == "batch":

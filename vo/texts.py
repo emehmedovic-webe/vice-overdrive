@@ -61,13 +61,16 @@ def build_texts(brief: dict, cfg: dict) -> dict:
 
     tt_tags = _uniq(extra_tags + tcfg["base_hashtags_tiktok"] + [_tag(k).lower() for k in keywords])[:max(8, len(extra_tags) + 4)]
     caption_core = brief.get("caption") or f"{hook} {topic} 👀 Was hättet ihr gemacht?"
-    caption = f"{caption_core}"
+    attribution = ""
     if streamer:
-        caption += f"\n🎥 Clip: {credit}"
+        attribution = f"\n🎥 Clip von {streamer['name']}: {allowlist.channel_url(streamer)}"
     elif credit:
-        caption += f" (Material: {credit})"
-    caption += "\n" + " ".join(tt_tags)
-    caption = caption[:TIKTOK_CAPTION_MAX]
+        attribution = f" (Material: {credit})"
+    caption_tail = attribution + "\n" + " ".join(tt_tags)
+    remaining = TIKTOK_CAPTION_MAX - len(caption_tail)
+    if remaining < 0:
+        raise ValueError("TikTok-Quellenangabe und Hashtags überschreiten das Zeichenlimit.")
+    caption = caption_core[:remaining].rstrip() + caption_tail
 
     texts = {
         "hook": hook,
@@ -80,7 +83,7 @@ def build_texts(brief: dict, cfg: dict) -> dict:
     if streamer:
         url = allowlist.channel_url(streamer)
         assert url in texts["youtube"]["description"], "Quellenangabe fehlt in YouTube-Beschreibung"
-        assert allowlist.short_url(streamer) in texts["tiktok"]["caption"], "Quellenangabe fehlt in TikTok-Caption"
+        assert url in texts["tiktok"]["caption"], "Quellenangabe fehlt in TikTok-Caption"
     return texts
 
 

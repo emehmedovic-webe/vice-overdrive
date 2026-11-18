@@ -1,8 +1,10 @@
-# Manuell startbarer Test (Actions → "VICE OVERDRIVE Test" → Run workflow).
+# Offline-Test für PRs oder manuell (Actions → "VICE OVERDRIVE Test" → Run workflow).
 # Nur Entwicklung/Test, KEIN Dauerbetrieb. Lädt nichts hoch und veröffentlicht nichts.
 name: VICE OVERDRIVE Test
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -24,12 +26,3 @@ jobs:
           for f in vo-demo/short.mp4 selftest-out/shorts/selftest-synthetic/short.mp4; do
             ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of csv=p=0 "$f" | tee /dev/stderr | grep -qx 'h264,1080,1920'
           done
-      - name: Ergebnisse als privates Artefakt (3 Tage)
-        uses: actions/upload-artifact@v4
-        with:
-          name: vice-overdrive-test-NICHT-POSTEN
-          retention-days: 3
-          path: |
-            vo-demo/
-            selftest-out/shorts/
-            selftest-out/logs/

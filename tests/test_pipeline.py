@@ -2,11 +2,14 @@
 import copy
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -14,7 +17,8 @@ from vo import allowlist  # noqa: E402
 from vo.common import load_config, write_json  # noqa: E402
 import vo.publish as pub  # noqa: E402
 from vo.publish import blocked_reason, make_batch, publish, tiktok_init_body, youtube_body  # noqa: E402
-from vo.render import RightsError, check_rights  # noqa: E402
+from vo.radar_clips import ClipError, download_clip, prepare_clips, source_for  # noqa: E402
+from vo.render import RightsError, check_rights, probe  # noqa: E402
 from vo.texts import build_texts  # noqa: E402
 from vo.twitch import Helix, dedupe, run_radar  # noqa: E402
 from vo.youtube_radar import YouTubeReader, is_gta  # noqa: E402
@@ -55,7 +59,8 @@ class FakeTwitch:
             v = self.views
             if params.get("broadcaster_id") == "1":
                 return {"data": [clip("a", "1", v["a"]), clip("a2", "1", v["a"] - 10, offset=110),
-                                 clip("chat", "1", 99999, video="v5", game="509658")]}  # Just Chatting
+                                 clip("chat", "1", 99999, video="v5", game="509658"),
+                                 clip("foreign", "999", 99999, video="v6")]}  # Just Chatting
             if params.get("broadcaster_id") == "2":
                 return {"data": [clip("b", "2", v["b"], video="v2", game="1234567"),
                                  clip("d", "2", v["d"], video="v8")]}
@@ -82,6 +87,7 @@ class RadarTests(unittest.TestCase):
             state, out = Path(tmp) / "state.json", Path(tmp) / "radar"
             r1 = run_radar(CFG, state, out, client=client, now=NOW)
             ids1 = [c["id"] for c in r1["top"]]
+            self.assertNotIn("foreign", ids1)            # widersprüchliche Kanal-ID
             self.assertNotIn("chat", ids1)               # kein GTA → verworfen
             self.assertEqual(r1["skipped_not_gta"], 1)
             self.assertIn("c", ids1)                     # englischer Clip zählt (US-Streamer)
@@ -122,13 +128,16 @@ class RadarTests(unittest.TestCase):
                 return {"items": [{"id": "UC" + params["forHandle"][1:],
                                    "contentDetails": {"relatedPlaylists": {"uploads": "UU" + params["forHandle"][1:]}}}]}
             if url.endswith("/playlistItems"):
-                return {"items": [{"contentDetails": {"videoId": params["playlistId"] + n}} for n in ("1", "2", "3")]}
+                return {"items": [{"contentDetails": {"videoId": params["playlistId"] + n}} for n in ("1", "2", "3", "4", "5")]}
             if url.endswith("/videos"):
                 out = []
                 for vid in params["id"].split(","):
-                    title = {"1": "GTA 6 RP Chaos", "2": "Minecraft Stream", "3": "Grand Theft Auto alt"}[vid[-1]]
+                    title = {"1": "GTA 6 RP Chaos", "2": "Minecraft Stream", "3": "Grand Theft Auto alt",
+                             "4": "GTA falscher Kanal", "5": "GTA Livestream"}[vid[-1]]
                     hours = 400 if vid.endswith("3") else 3
                     out.append({"id": vid, "snippet": {"title": title, "description": "", "channelTitle": vid[2:-1],
+                                "channelId": "UCother" if vid.endswith("4") else "UC" + vid[2:-1],
+                                "liveBroadcastContent": "live" if vid.endswith("5") else "none",
                                 "publishedAt": (NOW - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")},
                                 "statistics": {"viewCount": "5000" if "IShowSpeed" in vid else "300"},
                                 "contentDetails": {"duration": "PT45S"}})
@@ -165,6 +174,148 @@ class RadarTests(unittest.TestCase):
         cfg = copy.deepcopy(CFG)
         cfg["clip_allowlist"]["streamers"].append({"twitch_login": "nurvorgemerkt", "name": "X", "active": False})
         self.assertNotIn("nurvorgemerkt", allowlist.logins(cfg))
+
+
+class RadarClipTests(unittest.TestCase):
+    @staticmethod
+    def _twitch(slug="EpicClip", login="montanablack88"):
+        return {"id": slug, "platform": "twitch", "streamer_login": login,
+                "url": f"https://clips.twitch.tv/{slug}", "title": "GTA <RP> am Strand"}
+
+    @staticmethod
+    def _youtube():
+        return {"id": "yt:AbCd0123_-x", "platform": "youtube", "streamer_login": "ishowspeed",
+                "url": "https://www.youtube.com/watch?v=AbCd0123_-x", "title": "GTA bei Speed"}
+
+    def test_download_gate_blocks_inactive_missing_proof_and_wrong_urls(self):
+        cfg = copy.deepcopy(CFG)
+        first = cfg["clip_allowlist"]["streamers"][0]
+        first["proof"] = " "
+        top = [self._twitch(), self._twitch(login="fremderkanal"), self._youtube(),
+               {**self._twitch(login="eligella"), "url": "https://clips.twitch.tv@other.example/EpicClip"},
+               {**self._twitch(login="eligella"), "url": "https://clips.twitch.tv/AndererClip"},
+               {**self._twitch(login="eligella"), "url": "https://www.twitch.tv/xrohat/clip/EpicClip"},
+               self._twitch(login="xrohat")]
+        cfg["clip_allowlist"]["streamers"][2]["active"] = False
+        with tempfile.TemporaryDirectory() as tmp, patch("subprocess.run") as proc:
+            result = prepare_clips({"top": top}, cfg, Path(tmp))
+            self.assertEqual(result["rendered"], [])
+            self.assertEqual(len(result["skipped"]), len(top))
+            self.assertIn("Plattform-Downloadfreigabe", result["skipped"][2]["reason"])
+            proc.assert_not_called()
+
+    def test_youtube_approval_and_canonical_url(self):
+        cfg = copy.deepcopy(CFG)
+        cfg["clip_allowlist"]["streamers"][-1]["youtube_download_proof"] = "Testbeleg – keine echte Freigabe"
+        item = {**self._youtube(), "url": "https://youtu.be/AbCd0123_-x?list=ignored"}
+        sid, url, streamer = source_for(item, cfg)
+        self.assertEqual((sid, url, streamer),
+                         ("youtube-AbCd0123_-x", self._youtube()["url"], "ishowspeed"))
+        with self.assertRaisesRegex(ClipError, "Radar-ID"):
+            source_for({**item, "url": "https://youtu.be/mismatch123"}, cfg)
+
+    def test_downloader_builds_bounded_command_without_secrets(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"YT_API_KEY": "test-only"}):
+            stage = Path(tmp)
+
+            def fake_process(cmd, **kwargs):
+                self.assertNotIn("YT_API_KEY", kwargs["env"])
+                self.assertEqual(kwargs["cwd"], stage)
+                self.assertEqual(kwargs["timeout"], 120)
+                self.assertTrue(kwargs["check"])
+                self.assertEqual(cmd[-2:], ["--", self._youtube()["url"]])
+                self.assertIn("--no-playlist", cmd)
+                self.assertIn("*0-59", cmd)
+                (stage / "source.webm").write_bytes(b"test")
+
+            with patch("vo.radar_clips.subprocess.run", side_effect=fake_process):
+                self.assertEqual(download_clip(self._youtube()["url"], "youtube", stage, 59).name, "source.webm")
+
+    def test_attempt_budget_and_failure_without_source_residue(self):
+        cfg = copy.deepcopy(CFG)
+        cfg["render"]["max_seconds"] = 999
+        calls = []
+
+        def broken(url, platform, stage, seconds):
+            self.assertEqual(seconds, 59)
+            (stage / "source.mp4.part").touch()
+            calls.append(url)
+            raise ClipError("Test: Clip nicht verfügbar.")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = {"top": [self._twitch("A"), self._twitch("A"), self._twitch("B"), self._twitch("C")]}
+            result = prepare_clips(report, cfg, root, limit=2, download=broken)
+            self.assertEqual(calls, ["https://clips.twitch.tv/A", "https://clips.twitch.tv/B"])
+            self.assertEqual([x["short_id"] for x in result["failed"]], ["twitch-A", "twitch-B"])
+            self.assertFalse(list((root / "shorts").iterdir()))
+            self.assertFalse((root / "approvals").exists())
+
+    def test_non_inbox_mode_is_rejected_before_download(self):
+        cfg = {**CFG, "tiktok": {**CFG["tiktok"], "mode": "direct"}}
+        with tempfile.TemporaryDirectory() as tmp, patch("subprocess.run") as proc:
+            with self.assertRaisesRegex(ValueError, "inbox"):
+                prepare_clips({"top": [self._twitch()]}, cfg, Path(tmp))
+            proc.assert_not_called()
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg/ffprobe fehlen")
+    def test_radar_clips_render_and_hand_off_offline(self):
+        cfg = copy.deepcopy(CFG)
+        cfg["render"].update(width=720, height=1280, max_seconds=1)
+        cfg["clip_allowlist"]["streamers"][-1]["youtube_download_proof"] = "Nur Test"
+        report = {"top": [self._twitch(), self._youtube()]}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "synthetic.mp4"
+            subprocess.run([
+                "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=320x180:r=15",
+                "-t", "2", "-c:v", "libx264", str(source),
+            ], check=True)
+            urls = []
+
+            def fake_download(url, platform, stage, seconds):
+                self.assertEqual(seconds, 1)
+                urls.append(url)
+                return Path(shutil.copyfile(source, stage / "source.mp4"))
+
+            with patch("urllib.request.urlopen", side_effect=AssertionError("Kein Netzwerk im Test")):
+                result = prepare_clips(report, cfg, root, download=fake_download)
+                self.assertEqual(urls, [self._twitch()["url"], self._youtube()["url"]])
+                self.assertEqual(result["rendered"], ["twitch-EpicClip", "youtube-AbCd0123_-x"])
+                self.assertEqual(result["failed"], [])
+                for sid, name, url in [
+                    ("twitch-EpicClip", "MontanaBlack", "https://www.twitch.tv/montanablack88"),
+                    ("youtube-AbCd0123_-x", "IShowSpeed", "https://www.youtube.com/@IShowSpeed"),
+                ]:
+                    out = root / "shorts" / sid
+                    info = probe(out / "short.mp4")
+                    self.assertEqual((info["width"], info["height"], info["video_codec"], info["audio_codec"]),
+                                     (1080, 1920, "h264", "aac"))
+                    self.assertLessEqual(info["duration"], 1.1)
+                    for platform in ("youtube", "tiktok"):
+                        body = (out / f"{platform}.txt").read_text()
+                        self.assertIn(name, body)
+                        self.assertIn(url, body)
+                    manifest = json.loads((out / "manifest.json").read_text())
+                    self.assertEqual(manifest["rights"]["type"], "clipper_program")
+                    self.assertEqual(manifest["published"], {})
+                batch = json.loads(next((root / "approvals").glob("batch-*.json")).read_text())
+                self.assertTrue(all(not row[platform]["approved"] for row in batch["items"]
+                                    for platform in ("youtube", "tiktok")))
+                log = json.loads(next((root / "logs").glob("publish-tiktok-dryrun-*.json")).read_text())
+                self.assertTrue(all(row["blocked"] == "nicht freigegeben" for row in log))
+                self.assertTrue(all("/inbox/" in row["payload"]["endpoint"] for row in log))
+                yt_log = json.loads(next((root / "logs").glob("publish-youtube-dryrun-*.json")).read_text())
+                self.assertEqual(len(yt_log), 2)
+                for row in yt_log:
+                    self.assertEqual(row["blocked"], "nicht freigegeben")
+                    self.assertEqual(row["mode"], "dry-run")
+                    self.assertTrue(row["payload"]["snippet"]["title"].endswith("#Shorts"))
+                    self.assertEqual(row["payload"]["status"]["privacyStatus"], "private")
+                self.assertFalse(list(root.rglob("source.mp4")))
+                second = prepare_clips(report, cfg, root, download=fake_download)
+                self.assertEqual(second["rendered"], [])
+                self.assertEqual(len(urls), 2)
 
 
 class TextAndRightsTests(unittest.TestCase):
@@ -217,6 +368,13 @@ class ClipperProgramTests(unittest.TestCase):
         self.assertIn("twitch.tv/montanablack88", t["tiktok"]["caption"])
         self.assertIn("#montepartner", t["tiktok"]["caption"])
         self.assertIn("montepartner", t["youtube"]["tags"])
+
+    def test_long_caption_keeps_full_attribution_and_required_tags(self):
+        brief = {**self._brief(), "caption": "X" * 5000}
+        caption = build_texts(brief, self._cfg())["tiktok"]["caption"]
+        self.assertLessEqual(len(caption), 2200)
+        self.assertIn("MontanaBlack: https://www.twitch.tv/montanablack88", caption)
+        self.assertIn("#montepartner", caption)
 
     def test_publish_blocks_clip_without_credit(self):
         cfg = self._cfg()

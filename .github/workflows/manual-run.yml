@@ -7,7 +7,7 @@ on:
       step:
         description: "Was testen?"
         type: choice
-        options: [radar, publish-dry-run, tiktok-check, tiktok-revoke-old]
+        options: [radar, radar-clips, publish-dry-run, tiktok-check, tiktok-revoke-old]
         default: radar
 permissions:
   contents: read
@@ -24,6 +24,25 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
         run: python3 -m vo radar && cat data/radar/*.md
+      - uses: actions/setup-node@v4
+        if: inputs.step == 'radar-clips'
+        with:
+          node-version: '22'
+      - name: Werkzeuge für den Radar-Schnitt installieren (nur im Runner)
+        if: inputs.step == 'radar-clips'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          python3 -m venv "${RUNNER_TEMP}/vice-overdrive-venv"
+          "${RUNNER_TEMP}/vice-overdrive-venv/bin/python" -m pip install 'yt-dlp[default]==2026.10.26'
+      - name: Radar → Download → Schnitt (kein Plattform-Upload)
+        if: inputs.step == 'radar-clips'
+        env:
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+        run: |
+          export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
+          python3 -m vo radar-clips
       - name: TikTok prüfen bzw. alten Zugang widerrufen (kein Upload, nichts posten)
         if: inputs.step == 'tiktok-check' || inputs.step == 'tiktok-revoke-old'
         env:
@@ -46,4 +65,15 @@ jobs:
           path: |
             data/radar/
             selftest-out/logs/
+          if-no-files-found: ignore
+      - name: Geschnittene Radar-Clips zur Prüfung als Repo-Artefakt
+        if: inputs.step == 'radar-clips' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-clips-nicht-gepostet
+          retention-days: 3
+          path: |
+            data/shorts/
+            data/approvals/
+            data/logs/
           if-no-files-found: ignore
