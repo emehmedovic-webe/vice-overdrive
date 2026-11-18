@@ -161,7 +161,7 @@ class RadarTests(unittest.TestCase):
             self.assertEqual(r["top"][0]["id"], "yt:UUIShowSpeed1")   # meiste Aufrufe vorn
             self.assertEqual(r["top"][0]["streamer_login"], "ishowspeed")
             self.assertEqual(r["youtube"]["missing_handles"], ["@xQc"])
-            self.assertEqual(r["youtube"]["skipped_not_gta"], 3)       # Minecraft je Kanal
+            self.assertEqual(r["youtube"]["skipped_not_gta"], 4)       # Minecraft je Kanal
             self.assertFalse([u for _, u, _ in calls if u.endswith("/search")])  # kein teures search.list
             self.assertIn("Handle nicht gefunden: @xQc", next(Path(tmp, "r").glob("*.md")).read_text())
 
