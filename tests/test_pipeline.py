@@ -560,6 +560,23 @@ class AutopilotTests(unittest.TestCase):
         self.assertEqual(state["clips"]["twitch-a"]["status"], "sent")
         self.assertEqual(state["clips"]["twitch-a"]["tiktok_status"], "exported")
 
+    def test_direct_post_caption_has_no_source_or_question(self):
+        from vo.autopilot import tiktok_post_manifest
+        from vo.texts import tiktok_caption_problems
+        raw = ("Monte zieht in GTA 6 mit dem Auto über den Highway und verliert fast die Kontrolle.\n"
+               "👀 Was hättet ihr gemacht?\n🎥 Clip von MontanaBlack: https://www.twitch.tv/montanablack88\n"
+               "#GTA6 #MontanaBlack #GTAVI @montanablack88")
+        manifest = {"source": "https://www.twitch.tv/montanablack88/clip/x", "credit": "MontanaBlack",
+                    "texts": {"tiktok": {"caption": raw, "hashtags": ["#GTA6", "#MontanaBlack", "#GTAVI"]}}}
+        posted = tiktok_post_manifest(manifest)["texts"]["tiktok"]["caption"]
+        self.assertEqual(tiktok_caption_problems(posted), [])
+        self.assertNotIn("http", posted)
+        self.assertNotIn("Clip von", posted)
+        self.assertNotIn("hättet", posted)
+        self.assertIn("Highway", posted)
+        # Quelle bleibt intern im Manifest.
+        self.assertIn("Clip von", manifest["texts"]["tiktok"]["caption"])
+
     def test_file_mode_skips_missing_or_conflicting_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             data = Path(tmp)
