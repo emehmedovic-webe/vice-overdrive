@@ -1,0 +1,9 @@
+{
+  "_hinweis": "Bereits verarbeitete Clips. Wird bei jedem Lauf in den Zustand übernommen, damit nichts doppelt hochgeladen wird, auch wenn der Actions-Cache fehlt. Keine Geheimnisse.",
+  "clips": {
+    "twitch-WealthyNimbleHamsterDansGame-yrU7UShZomelh1Ke": {"status": "sent", "youtube_id": "XBoCHHYBGYk", "tiktok_status": "exported", "source_ids": ["WealthyNimbleHamsterDansGame-yrU7UShZomelh1Ke"]},
+    "twitch-TrustworthyCarefulJalapenoKAPOW--CPhZdDJiBW-X0-C": {"status": "sent", "youtube_id": "Kqy-upJXfAw", "tiktok_status": "exported", "source_ids": ["TrustworthyCarefulJalapenoKAPOW--CPhZdDJiBW-X0-C"]},
+    "twitch-CalmElatedPrariedog4Head-r1jQrPTSP5J2vEkV": {"status": "sent", "youtube_id": "kl5PVXP_4SI", "tiktok_status": "exported", "source_ids": ["CalmElatedPrariedog4Head-r1jQrPTSP5J2vEkV"]},
+    "twitch-DifferentPreciousWaffleHotPokket-wMDh_pqLv3Ve6ZOc": {"status": "sent", "youtube_id": "_jqdZ3f5n00", "tiktok_status": "exported", "source_ids": ["DifferentPreciousWaffleHotPokket-wMDh_pqLv3Ve6ZOc"]}
+  }
+}

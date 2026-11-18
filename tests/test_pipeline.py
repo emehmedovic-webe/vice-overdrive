@@ -518,6 +518,18 @@ class AutopilotTests(unittest.TestCase):
                 run_cycle(cfg, Path(tmp), mode="off", tiktok_inbox=True,
                           radar=lambda *a: self.fail("kein Radar"), clock=lambda: NOW)
 
+    def test_known_clips_override_missing_state(self):
+        from vo.autopilot import load_state
+        with tempfile.TemporaryDirectory() as tmp:
+            known = Path(tmp) / "known.json"
+            write_json(known, {"clips": {"twitch-a": {"status": "sent", "tiktok_status": "exported",
+                                                      "source_ids": ["a"]}}})
+            path = Path(tmp) / "state.json"
+            write_json(path, {"last_attempt": None, "clips": {"twitch-a": {"status": "prepared"}}})
+            state = load_state(path, known)
+        self.assertEqual(state["clips"]["twitch-a"]["status"], "sent")
+        self.assertEqual(state["clips"]["twitch-a"]["tiktok_status"], "exported")
+
     def test_file_mode_skips_missing_or_conflicting_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             data = Path(tmp)

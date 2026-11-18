@@ -23,7 +23,15 @@ jobs:
       - name: Zustand laden
         uses: actions/cache/restore@v4
         with:
-          path: data/autopilot
+          # Muss exakt dieselbe Pfadliste wie beim Speichern sein, sonst findet GitHub den Cache nicht.
+          path: |
+            data/autopilot
+            !data/autopilot/**/*.mp4
+            !data/autopilot/**/*.mkv
+            !data/autopilot/**/*.webm
+            !data/autopilot/**/*.part
+            !data/autopilot/**/*.lock
+            !data/autopilot/state/tiktok-token.json
           key: autopilot-state-${{ github.run_id }}
           restore-keys: autopilot-state-
       - uses: actions/setup-node@v4
