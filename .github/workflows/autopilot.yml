@@ -73,7 +73,10 @@ jobs:
         with:
           path: |
             data/autopilot
-            !data/autopilot/shorts/*/short.mp4
+            !data/autopilot/**/*.mp4
+            !data/autopilot/**/*.mkv
+            !data/autopilot/**/*.webm
+            !data/autopilot/**/*.part
             !data/autopilot/**/*.lock
           key: autopilot-state-${{ github.run_id }}
       - name: Fertigen Short zur Kontrolle ablegen (3 Tage, privat)
