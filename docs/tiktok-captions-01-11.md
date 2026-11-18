@@ -1,6 +1,6 @@
 # TikTok-Captions für Clips 01–11
 
-Gehört zum [TikTok-Export vom 18. November](https://github.com/emehmedovic-webe/vice-overdrive/releases/tag/tiktok-export-2026-11-18_1429). Clips 12–15 sind schon gepostet und bleiben unverändert. Die fertige ZIP mit MP4 und `caption.txt` pro Clip liegt im Release [tiktok-captions-2026-11-18_01-11](https://github.com/emehmedovic-webe/vice-overdrive/releases/tag/tiktok-captions-2026-11-18_01-11).
+Gehört zum [TikTok-Export vom 18. November](https://github.com/emehmedovic-webe/vice-overdrive/releases/tag/tiktok-export-2026-11-18_1429). Clips 12–15 sind schon gepostet und bleiben unverändert. Die fertige ZIP `TikTok-Export_2026-11-18_Captions_01-11.zip` (unveränderte MP4 plus `caption.txt` pro Clip) liegt in Enis' Download-Ordner.
 
 Jeder Kasten ist die komplette Caption: Beschreibung, Leerzeile, eine Hashtag-Zeile (TikTok erlaubt höchstens fünf Hashtags). Quelle und Rechte stehen nicht in der Caption, sondern intern im Export (`CAPTIONS.md`) und im Autopilot-Zustand.
 
