@@ -1,9 +1,8 @@
-# Stündlicher TikTok-Autopilot. Nur Video-Entwürfe, keine Veröffentlichung.
-# Für reine Dateiausgabe VO_TIKTOK_INBOX=false setzen.
+# TikTok-Autopilot (nur Video-Entwürfe, keine Veröffentlichung). Nur noch manuell:
+# Sandbox-Entwürfe kamen bei Enis weder in der iPhone-App noch in TikTok Studio an (2026-11-18).
+# Den Stundenlauf übernimmt jetzt export.yml (fertige Clips + Caption zum Selbsthochladen).
 name: VICE OVERDRIVE Autopilot
 on:
-  schedule:
-    - cron: '7 * * * *'
   workflow_dispatch:
     inputs:
       tiktok_inbox:
