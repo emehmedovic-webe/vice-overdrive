@@ -17,11 +17,15 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Twitch-Radar (nur Entdecken)
+      - name: Radar Twitch + YouTube (nur lesen, nichts hochladen)
         if: inputs.step == 'radar'
         env:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: python3 -m vo radar && cat data/radar/*.md
       - name: TikTok prüfen bzw. alten Zugang widerrufen (kein Upload, nichts posten)
         if: inputs.step == 'tiktok-check' || inputs.step == 'tiktok-revoke-old'

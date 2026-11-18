@@ -8,8 +8,10 @@ Nur Python-Standardbibliothek + ffmpeg. Auf dem Arbeits-Mac wird nichts installi
 1. **Radar** `python -m vo radar` – sucht Clips **nur** bei den Streamern der Allowlist
    (`config.json` → `clip_allowlist`, derzeit montanablack88, eligella, xrohat, xqc, ishowspeed) und behält mit
    `gta_filter` nur Clips aus „Grand Theft Auto V“ (inkl. GTA RP) und „Grand Theft Auto VI“.
-   Andere Kanäle und Spiele fallen raus. IShowSpeed streamt fast nur auf YouTube, xQc auch auf Kick:
-   Das Radar sieht nur Twitch, Material von dort per Brief einbringen. Logins, die Twitch nicht kennt, stehen oben im Bericht.
+   Andere Kanäle und Spiele fallen raus. Zusätzlich durchsucht es die YouTube-Kanäle (`youtube_handle`)
+   der Streamer nach neuen GTA-Videos (Titel/Beschreibung/Tags), nur lesend über die YouTube Data API
+   (~3 Einheiten pro Kanal, kein teures search.list). Anmeldung: `YT_API_KEY`, sonst der vorhandene OAuth-Zugang.
+   Kick wird nicht durchsucht. Logins, die Twitch nicht kennt, stehen oben im Bericht.
    Fasst Duplikate zusammen (gleiche Clip-ID, gleiches VOD ±30 s,
    gleicher Kanal + gleicher Titel) und sortiert nach **Zuwachs der Aufrufe seit dem letzten Check**.
    Ergebnis: `data/radar/radar-*.md`. **Nur zum Entdecken** – es wird nichts heruntergeladen.
