@@ -70,6 +70,8 @@ jobs:
           VO_ACTIONS_UPLOAD: "1"
           YOUTUBE_MODE: ${{ inputs.youtube || vars.VO_YOUTUBE_MODE || 'public' }}
           MAX_UPLOADS: ${{ inputs.max_uploads || '4' }}
+          # Manuell gestartete Läufe sind gewollt und warten nicht auf die 30-Minuten-Pause.
+          MIN_GAP: ${{ github.event_name == 'workflow_dispatch' && '0' || '30' }}
           TIKTOK_INBOX: ${{ github.event_name == 'schedule' && (vars.VO_TIKTOK_INBOX || 'true') || (inputs.tiktok_inbox && 'true' || 'false') }}
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
@@ -85,7 +87,7 @@ jobs:
           extra=""
           if [ "$TIKTOK_INBOX" = "true" ]; then extra="--tiktok-inbox"; fi
           python3 -m vo autopilot --text-source files --youtube "$YOUTUBE_MODE" $extra \
-            --max-uploads "$MAX_UPLOADS" --min-gap-minutes 30
+            --max-uploads "$MAX_UPLOADS" --min-gap-minutes "$MIN_GAP"
       - name: Zustand sichern
         if: always()
         uses: actions/cache/save@v4
