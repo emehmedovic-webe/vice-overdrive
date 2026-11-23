@@ -105,6 +105,11 @@ def main(argv=None) -> None:
     ex.add_argument("--all-recent", action="store_true",
                     help="Alle GTA-Clips der letzten 7 Tage berücksichtigen, nicht nur die mit neuem Aufrufzuwachs")
     ex.add_argument("--redo", default="", help="Komma-getrennte Twitch-Clip-Slugs gezielt neu exportieren")
+    vm = sub.add_parser("vod-mine", help="Laute Momente aus GTA-VODs der Allowlist als Rohmaterial holen")
+    vm.add_argument("--out", type=Path, default=Path("vod-momente"))
+    vm.add_argument("--per-vod", type=int, default=4)
+    vm.add_argument("--vods", type=int, default=1, help="VODs pro Streamer (neueste zuerst)")
+    vm.add_argument("--logins", default="", help="Komma-getrennte Twitch-Logins (leer = alle)")
     cp = sub.add_parser("compose", help="Format v3 aus Rohmaterial (_roh/source.mp4 + words.json) und edit.json bauen")
     cp.add_argument("folder", type=Path)
     pb = sub.add_parser("publish"); pb.add_argument("target", choices=["youtube", "tiktok"])
@@ -158,6 +163,12 @@ def main(argv=None) -> None:
         if notes.is_file() and "Zurückgehalten" in notes.read_text(encoding="utf-8"):
             print(notes.read_text(encoding="utf-8").split("# Zurückgehalten", 1)[1])
         return 0
+    elif a.cmd == "vod-mine":
+        from .vod_mine import mine
+        rows = mine(cfg, data.resolve() / "autopilot", a.out, per_vod=max(1, min(a.per_vod, 8)),
+                    vods_per_streamer=max(1, min(a.vods, 3)),
+                    logins=[x.strip().lower() for x in a.logins.split(",") if x.strip()] or None)
+        print(f"VOD-Momente: {len(rows)} in {a.out}")
     elif a.cmd == "compose":
         from .compose import compose
         print(compose(a.folder, cfg))
