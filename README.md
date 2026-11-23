@@ -3,6 +3,10 @@
 YouTube `@viceoverdrive6` · TikTok `@viceoverdrive` · Budget 0 € · keine Zahlungsmethode, keine Testabos, keine Bezahl-APIs.
 Python-Standardbibliothek + ffmpeg, für automatische Radar-Downloads zusätzlich yt-dlp. Auf dem Arbeits-Mac wird nichts installiert.
 
+## TikTok-Sicherheit (verbindlich)
+
+Vor jeder Erstellung, Freigabe oder Übergabe eines TikTok-Clips die Regeln in [docs/TIKTOK_CONTENT_SAFETY.md](docs/TIKTOK_CONTENT_SAFETY.md) beachten. Die Datei dokumentiert auch den TikTok-Befund vom 23.11.2026: Das Konto @viceoverdrive hatte laut Kontoprüfung keine accountweiten Probleme oder Verstöße, aber genau drei Beiträge waren von Empfehlungen ausgeschlossen. Die einzelnen Gründe wurden nicht geöffnet und sind daher unbekannt. Keine Ursache erfinden. Neue Clips vor Upload auf Richtlinien, Rechte, Audio, Untertitel, Caption und Spam prüfen; bei Unsicherheit stoppen und manuell prüfen. Keine Veröffentlichung ohne ausdrückliche Freigabe.
+
 ## Ablauf
 
 1. **Radar** `python -m vo radar` – sucht Clips **nur** bei den Streamern der Allowlist
