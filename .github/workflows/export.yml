@@ -62,11 +62,28 @@ jobs:
         with:
           path: ~/.cache/huggingface
           key: whisper-small-v1
-      - name: Werkzeuge installieren (nur im Runner)
+      - name: Werkzeuge aus dem Cache
+        id: tools
+        uses: actions/cache@v4
+        with:
+          path: ~/vo-tools
+          key: vo-tools-v1-${{ env.ImageOS }}-${{ env.ImageVersion }}-ffmpeg_fonts-dejavu-core_fonts-inter_zip-ytdlp2026.10.26-fw1.2.1
+      - name: Werkzeuge installieren (beim ersten Mal ~10 min, danach aus dem Cache ~1 min)
+        env:
+          NEEDRESTART_MODE: l
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core fonts-inter zip
-          python3 -m venv "${RUNNER_TEMP}/vice-overdrive-venv"
-          "${RUNNER_TEMP}/vice-overdrive-venv/bin/python" -m pip install -q 'yt-dlp[default]==2026.10.26' 'faster-whisper==1.2.1'
+          if [ "${{ steps.tools.outputs.cache-hit }}" = "true" ]; then
+            sudo dpkg -i ~/vo-tools/debs/*.deb >/dev/null
+          else
+            mkdir -p ~/vo-tools/debs/partial
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends -o APT::Keep-Downloaded-Packages=true -o Dir::Cache::archives="$HOME/vo-tools/debs" ffmpeg fonts-dejavu-core fonts-inter zip
+            sudo chown -R "$USER" ~/vo-tools/debs
+            python3 -m venv ~/vo-tools/venv
+            ~/vo-tools/venv/bin/python -m pip install -q 'yt-dlp[default]==2026.10.26' 'faster-whisper==1.2.1'
+          fi
+          ln -sfn ~/vo-tools/venv "${RUNNER_TEMP}/vice-overdrive-venv"
       - name: Export schneiden
         env:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
