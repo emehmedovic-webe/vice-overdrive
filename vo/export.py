@@ -54,7 +54,7 @@ def export_caption(src: Path) -> str:
     return tiktok_export_caption(description, hashtags)
 
 
-def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
+def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15, per_streamer: int = MAX_PER_STREAMER,
                radar=run_radar, render=prepare_clips, clock=now_utc) -> list[dict]:
     root = root.resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -71,12 +71,12 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
         state = load_state(state_path)
         old = state["clips"]
         report = radar(cfg, root / "state" / "radar_state.json", root / "radar")
-        per_streamer: dict[str, int] = {}
+        counts: dict[str, int] = {}
         for clip in mix_by_streamer(report["top"]):
             if len(exported) >= limit:
                 break
             login = str(clip.get("streamer_login") or "").casefold()
-            if per_streamer.get(login, 0) >= MAX_PER_STREAMER:
+            if counts.get(login, 0) >= per_streamer:
                 continue
             title = clip.get("title", "")
             try:
@@ -157,7 +157,7 @@ keine Nutzungsrechte und garantiert keine TikTok-Empfehlung.
                    "tiktok_status": "exported", "tiktok_at": iso(clock())}
             old[sid] = rec
             atomic_json(state_path, state)
-            per_streamer[login] = per_streamer.get(login, 0) + 1
+            counts[login] = counts.get(login, 0) + 1
             exported.append({"file": name, "streamer": streamer, "title": title,
                              "source": clip.get("url", ""), "caption": caption, "check": check})
     notes = ["# TikTok-Export (selbst posten)", "",
