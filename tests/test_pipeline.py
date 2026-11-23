@@ -28,6 +28,9 @@ from vo.twitch import Helix, dedupe, run_radar  # noqa: E402
 from vo.youtube_radar import YouTubeReader, is_gta  # noqa: E402
 
 CFG = load_config()
+# Explizite, synthetische HTTPS-Belege nur für Offline-Tests; produktive Config bleibt unverändert.
+for _entry in CFG.get("clip_allowlist", {}).get("streamers", []):
+    _entry["proof"] = "https://example.com/test-clipper-permission"
 GTA6_ONLY = copy.deepcopy(CFG)
 # Bestehende Tests decken beide Spiele ab; der Live-Filter steht in config.json (nur GTA VI).
 CFG["gta_filter"]["categories"] = ["Grand Theft Auto V", "Grand Theft Auto VI"]
@@ -222,7 +225,7 @@ class RadarClipTests(unittest.TestCase):
 
     def test_youtube_approval_and_canonical_url(self):
         cfg = copy.deepcopy(CFG)
-        next(e for e in cfg["clip_allowlist"]["streamers"] if e["twitch_login"] == "ishowspeed")["youtube_download_proof"] = "Testbeleg – keine echte Freigabe"
+        next(e for e in cfg["clip_allowlist"]["streamers"] if e["twitch_login"] == "ishowspeed")["youtube_download_proof"] = "https://example.com/test-youtube-download-permission"
         item = {**self._youtube(), "url": "https://youtu.be/AbCd0123_-x?list=ignored"}
         sid, url, streamer = source_for(item, cfg)
         self.assertEqual((sid, url, streamer),
@@ -278,7 +281,7 @@ class RadarClipTests(unittest.TestCase):
     def test_radar_clips_render_and_hand_off_offline(self):
         cfg = copy.deepcopy(CFG)
         cfg["render"].update(width=720, height=1280, max_seconds=1)
-        next(e for e in cfg["clip_allowlist"]["streamers"] if e["twitch_login"] == "ishowspeed")["youtube_download_proof"] = "Nur Test"
+        next(e for e in cfg["clip_allowlist"]["streamers"] if e["twitch_login"] == "ishowspeed")["youtube_download_proof"] = "https://example.com/test-youtube-download-permission"
         report = {"top": [self._twitch(), self._youtube()]}
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
