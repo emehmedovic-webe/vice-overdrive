@@ -7,7 +7,7 @@ on:
       step:
         description: "Was testen?"
         type: choice
-        options: [radar, radar-clips, publish-dry-run, tiktok-check, tiktok-revoke-old, youtube-check, autopilot-tiktok-test]
+        options: [radar, radar-clips, publish-dry-run, tiktok-check, tiktok-revoke-old, youtube-check, autopilot-tiktok-test, shorts-research]
         default: radar
 permissions:
   contents: read
@@ -65,6 +65,11 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: python3 -m vo youtube-check
+      - name: Recherche meistgesehene GTA-6-Shorts (nur lesen)
+        if: inputs.step == 'shorts-research'
+        env:
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+        run: python3 -m vo.shorts_research
       - name: Publish Dry-Run (YouTube + TikTok)
         if: inputs.step == 'publish-dry-run'
         run: |
@@ -79,6 +84,7 @@ jobs:
           retention-days: 3
           path: |
             data/radar/
+            data/research/
             selftest-out/logs/
           if-no-files-found: ignore
       - name: Geschnittene Radar-Clips zur Prüfung als Repo-Artefakt
