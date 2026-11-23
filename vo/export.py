@@ -58,7 +58,9 @@ def export_caption(src: Path, cfg: dict | None = None, streamer: str | None = No
 
 
 def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15, per_streamer: int = MAX_PER_STREAMER,
-               radar=run_radar, render=prepare_clips, clock=now_utc) -> list[dict]:
+               radar=run_radar, render=prepare_clips, clock=now_utc, redo: frozenset[str] = frozenset()) -> list[dict]:
+    """redo = Clip-Slugs, die gezielt neu geschnitten werden (z. B. für ein neues Format), auch wenn
+    sie schon exportiert wurden. Ist redo gesetzt, werden nur diese Clips exportiert."""
     root = root.resolve()
     out.mkdir(parents=True, exist_ok=True)
     work = root.parent / "export-work"
@@ -82,6 +84,9 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15, per_streame
             if counts.get(login, 0) >= per_streamer:
                 continue
             title = clip.get("title", "")
+            wanted = bool(redo) and any(r and r in str(clip.get("url", "")) for r in redo)
+            if redo and not wanted:
+                continue
             try:
                 sid, _url, streamer = source_for(clip, cfg)
             except ClipError as exc:
@@ -101,10 +106,10 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15, per_streame
                              "reason": f"Titel enthält Risiko-Wort „{hit}“ (title_blocklist)"})
                 continue
             previous = old.get(sid, {})
-            if previous.get("tiktok_status") in SKIP_TIKTOK:
+            if previous.get("tiktok_status") in SKIP_TIKTOK and not wanted:
                 continue
             done = [v for k, v in old.items() if k != sid and v.get("tiktok_status") in SKIP_TIKTOK]
-            if any(_same_moment(clip, v, cfg["radar"]["dedupe_window_seconds"]) for v in done):
+            if not wanted and any(_same_moment(clip, v, cfg["radar"]["dedupe_window_seconds"]) for v in done):
                 continue
             try:
                 result = render({"top": [clip], "gta_categories": report.get("gta_categories", {})},

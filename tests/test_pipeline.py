@@ -533,6 +533,11 @@ class AutopilotTests(unittest.TestCase):
             again = run_export(CFG, root, Path(tmp) / "export2",
                                radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
             self.assertEqual(again, [])
+            # Gezielt neu schneiden (neues Format): nur der gewünschte Clip, trotz „schon exportiert“.
+            shutil.rmtree(Path(tmp) / "export-work", ignore_errors=True)
+            redo = run_export(CFG, root, Path(tmp) / "export3", redo=frozenset({"race-b"}),
+                              radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
+            self.assertEqual(len(redo), 1)
 
     def test_export_lists_held_streamers_and_risky_titles(self):
         from vo.export import run_export
