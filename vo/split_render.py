@@ -114,7 +114,7 @@ def _run(cmd: list[str], cwd: Path) -> None:
 
 def render_split(src: Path, out: Path, *, start: float, duration: float, facecam: dict, headline: str,
                  words: list[dict] = (), bubbles: list[dict] = (), punch: list[dict] = (),
-                 game_x: float | None = None, outro_seconds: float = 2.5, font: str = "Inter Display",
+                 game_x: float | None = None, blur: list[dict] = (), outro_seconds: float = 2.5, font: str = "Inter Display",
                  max_bitrate: str = "6M") -> Path:
     """facecam = {x, y, w, h} im auf 1920x1080 skalierten Quellbild. game_x = linker Rand des Gameplay-Ausschnitts."""
     src, out = Path(src).resolve(), Path(out).resolve()
@@ -125,7 +125,13 @@ def render_split(src: Path, out: Path, *, start: float, duration: float, facecam
         t = Path(tmp)
         write_body_ass(t / "body.ass", headline=headline, duration=duration, words=list(words), start=start,
                        bubbles=list(bubbles), punch=list(punch), font=font)
-        vf = (f"[0:v]scale=1920:1080,setsar=1,split[s1][s2];"
+        # Eingebrannte Fremd-Untertitel o. Ä. unkenntlich machen (Boxen im 1920x1080-Bild).
+        pre = "[0:v]scale=1920:1080,setsar=1"
+        for i, bx in enumerate(blur):
+            x, y, w, h = (int(bx[k]) for k in ("x", "y", "w", "h"))
+            pre += (f"[p{i}];[p{i}]split[q{i}][r{i}];[r{i}]crop={w}:{h}:{x}:{y},boxblur=20:3[b{i}];"
+                    f"[q{i}][b{i}]overlay={x}:{y}")
+        vf = (f"{pre},split[s1][s2];"
               f"[s1]crop={fw}:{fh}:{fx}:{fy},scale={W}:{CAM_H}:force_original_aspect_ratio=increase,"
               f"crop={W}:{CAM_H}[cam];"
               f"[s2]crop={gw}:1080:{gx}:0,scale={W}:{GAME_H}[game];"
