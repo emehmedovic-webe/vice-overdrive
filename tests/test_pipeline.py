@@ -210,6 +210,7 @@ class RadarClipTests(unittest.TestCase):
         cfg = copy.deepcopy(CFG)
         first = cfg["clip_allowlist"]["streamers"][0]
         first["proof"] = " "
+        first.pop("creator_confirmation", None)
         top = [self._twitch(), self._twitch(login="fremderkanal"), self._youtube(),
                {**self._twitch(login="eligella"), "url": "https://clips.twitch.tv@other.example/EpicClip"},
                {**self._twitch(login="eligella"), "url": "https://clips.twitch.tv/AndererClip"},
@@ -535,7 +536,8 @@ class AutopilotTests(unittest.TestCase):
         cfg = copy.deepcopy(CFG)
         # Wie in der echten config.json: nur ein mündlicher Vermerk, kein Link.
         next(e for e in cfg["clip_allowlist"]["streamers"]
-             if e["twitch_login"] == "montanablack88")["proof"] = "mündlich im Stream angesagt"
+             if e["twitch_login"] == "montanablack88").update(proof="mündlich im Stream angesagt",
+                                                              creator_confirmation=None)
         trymacs = {**self._item("t-1", video="v9"), "streamer_login": "trymacs",
                    "url": "https://clips.twitch.tv/t-1", "title": "GTA 6 Leak Map", "game_id": "1234567"}
         items = [self._item("race-a", video="v1"), trymacs]
@@ -549,7 +551,7 @@ class AutopilotTests(unittest.TestCase):
             self.assertEqual((rows, rendered), ([], []))
             notes = (Path(tmp) / "export" / "CAPTIONS.md").read_text(encoding="utf-8")
             self.assertIn("Zurückgehalten", notes)
-            self.assertIn("MontanaBlack** gesperrt: kein Link", notes)
+            self.assertIn("MontanaBlack** gesperrt: kein Freigabe-Beleg", notes)
             self.assertIn("Risiko-Wort „leak“", notes)
 
     def test_permission_proof_needs_real_link(self):
@@ -559,7 +561,16 @@ class AutopilotTests(unittest.TestCase):
                           ("Clipper-Regeln: https://www.twitch.tv/montanablack88/about", True)]:
             with self.subTest(proof=proof):
                 self.assertEqual(allowlist.has_proof({"proof": proof}), ok)
-        self.assertIn("kein Link", allowlist.proof_problem({"proof": "mündlich"}))
+        self.assertIn("kein Freigabe-Beleg", allowlist.proof_problem({"proof": "mündlich"}))
+        conf = {"type": "verbal_stream_permission", "confirmed_by": "Enis", "date": "2026-11-23"}
+        self.assertTrue(allowlist.has_proof({"proof": "mündlich", "creator_confirmation": conf}))
+        # Gilt nicht für YouTube-Downloads und nicht ohne Datum/Name.
+        self.assertFalse(allowlist.has_proof({"creator_confirmation": conf}, "youtube_download_proof"))
+        self.assertFalse(allowlist.has_proof({"creator_confirmation": {**conf, "date": ""}}))
+        self.assertFalse(allowlist.has_proof({"creator_confirmation": {**conf, "confirmed_by": " "}}))
+        real = load_config()
+        for login in ("montanablack88", "eligella", "xrohat", "trymacs"):
+            self.assertTrue(allowlist.has_proof(allowlist.find(real, login)), login)
         self.assertIsNone(allowlist.proof_problem({"proof": "https://twitch.tv/x"}))
 
     def test_teaser_only_when_peak_is_late(self):
@@ -870,6 +881,8 @@ class ClipperProgramTests(unittest.TestCase):
         cfg = copy.deepcopy(CFG)
         for st in cfg["clip_allowlist"]["streamers"]:
             st["proof"] = proof
+            if not proof:
+                st.pop("creator_confirmation", None)
         cfg["clip_allowlist"]["streamers"][0]["required_tags"] = ["montepartner"]
         return cfg
 

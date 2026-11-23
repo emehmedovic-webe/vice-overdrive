@@ -17,6 +17,7 @@ Before scheduling or uploading, review the complete video, including the opening
 - Do not assume that cropping, subtitles, a reaction facecam, or other minor edits make someone else's footage authorized or sufficiently original.
 - The vertical renderer must preserve the complete source frame proportionally (fit/letterbox over a blurred background); do not center-crop landscape footage in a way that can remove the streamer facecam.
 - A clipper-program allowlist entry is not approved by a free-text note such as 'verbally confirmed'. The proof field must contain a verifiable HTTPS reference to the applicable VOD timestamp, program rules, or permission. Until then, automated clip processing must hold that streamer.
+- Exception decided by the creator on 2026-11-23: for montanablack88, eligella, xrohat and trymacs, the creator confirmed that these streamers say publicly in their streams that clips are fine as long as nothing is made up. This is recorded per streamer as `creator_confirmation` (type `verbal_stream_permission`, confirmed_by, date) in `config.json` and counts as the rights basis for Twitch clips only (not for YouTube downloads). Because of that condition, captions, hooks and subtitles must never invent or exaggerate anything; every other check in this document still applies.
 - Prefer original gameplay, commentary, analysis, or substantial creative contribution. Obtain and document permission or another valid rights basis before using third-party streamer footage.
 - Check music and other audio separately for usage rights.
 

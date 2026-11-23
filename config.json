@@ -11,7 +11,13 @@
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
         "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe).",
-        "youtube_handle": "@MontanaBlack"
+        "youtube_handle": "@MontanaBlack",
+        "creator_confirmation": {
+          "type": "verbal_stream_permission",
+          "confirmed_by": "Enis",
+          "date": "2026-11-23",
+          "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
+        }
       },
       {
         "twitch_login": "eligella",
@@ -20,7 +26,13 @@
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
         "notes": "Clipper-Programm laut Enis im Stream angesagt.",
-        "youtube_handle": "@Eligella"
+        "youtube_handle": "@Eligella",
+        "creator_confirmation": {
+          "type": "verbal_stream_permission",
+          "confirmed_by": "Enis",
+          "date": "2026-11-23",
+          "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
+        }
       },
       {
         "twitch_login": "xrohat",
@@ -28,7 +40,13 @@
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "Clipper-Programm laut Enis im Stream angesagt."
+        "notes": "Clipper-Programm laut Enis im Stream angesagt.",
+        "creator_confirmation": {
+          "type": "verbal_stream_permission",
+          "confirmed_by": "Enis",
+          "date": "2026-11-23",
+          "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
+        }
       },
       {
         "twitch_login": "xqc",
@@ -56,7 +74,13 @@
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
         "notes": "Deutscher Streamer, Clips laut Enis freigegeben (Bestätigung im Projekt-Thread 2026-11-18).",
-        "youtube_handle": "@Trymacs"
+        "youtube_handle": "@Trymacs",
+        "creator_confirmation": {
+          "type": "verbal_stream_permission",
+          "confirmed_by": "Enis",
+          "date": "2026-11-23",
+          "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
+        }
       }
     ]
   },
@@ -65,8 +89,24 @@
     "categories": [
       "Grand Theft Auto VI"
     ],
-    "games": ["gta6"],
-    "title_blocklist": ["18+", "nsfw", "nude", "naked", "nackt", "sex", "porn", "test clip", "leak", "geleakt", "doxx", "adresse", "handynummer"],
+    "games": [
+      "gta6"
+    ],
+    "title_blocklist": [
+      "18+",
+      "nsfw",
+      "nude",
+      "naked",
+      "nackt",
+      "sex",
+      "porn",
+      "test clip",
+      "leak",
+      "geleakt",
+      "doxx",
+      "adresse",
+      "handynummer"
+    ],
     "_hinweis": "Nur GTA VI (Entscheidung Enis 2026-11-18). GTA V/RP wieder zulassen: Kategorie \"Grand Theft Auto V\" und \"gta5\" ergänzen."
   },
   "language": "de",

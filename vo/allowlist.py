@@ -43,11 +43,23 @@ def has_proof(entry: dict, field: str = "proof") -> bool:
     Akzeptiert eine HTTPS-Quelle (z. B. VOD/Regeln/Clipper-Programm). Aussagen wie
     'mündlich bestätigt' bleiben als Notiz erhalten, schalten den Export aber nicht frei.
     """
+    if field == "proof" and has_creator_confirmation(entry):
+        return True
     proof = entry.get(field)
     if not isinstance(proof, str):
         return False
     # Ein echter Link mit Domain (https://seite.tld/...), nicht nur "https://" oder "https://x".
     return bool(_PROOF_URL.search(proof))
+
+
+def has_creator_confirmation(entry: dict) -> bool:
+    """Enis' dokumentierte Bestätigung (2026-11-23): Der Streamer sagt im Stream öffentlich,
+    dass Clips erlaubt sind, solange nichts erfunden wird. Gilt nur mit Typ, Name und Datum
+    und nur für Twitch-Clips (nicht für YouTube-Downloads)."""
+    conf = entry.get("creator_confirmation")
+    return (isinstance(conf, dict) and conf.get("type") == "verbal_stream_permission"
+            and bool(str(conf.get("confirmed_by") or "").strip())
+            and bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(conf.get("date") or ""))))
 
 
 def proof_problem(entry: dict | None, field: str = "proof") -> str | None:
@@ -57,7 +69,7 @@ def proof_problem(entry: dict | None, field: str = "proof") -> str | None:
     if not entry.get("active", True):
         return "in der Allowlist pausiert"
     if not has_proof(entry, field):
-        return "kein Link als Freigabe-Beleg (z. B. Clipper-Programm-Regeln oder VOD-Stelle) in config.json"
+        return "kein Freigabe-Beleg (Link oder dokumentierte Stream-Freigabe) in config.json"
     return None
 
 
