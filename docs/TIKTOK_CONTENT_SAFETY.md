@@ -73,6 +73,10 @@ The screenshot did not show the individual restriction reasons. Do not guess why
 
 Every generated TikTok export includes `REVIEW_REQUIRED.txt`. It starts in a NOT REVIEWED / DO NOT POST state. The person preparing the post must watch the complete exported MP4 and tick every item before uploading. The checklist is not an automated visual or legal determination. A full-frame fit protects against the renderer cropping out a facecam, but cannot prove that a facecam exists in the source or that the streamer is recognizable. Uncertain clips stay unpublished.
 
+## 7a. Held clips are listed, not silently dropped
+
+Every export writes a "Zurückgehalten (NICHT exportiert)" section into `CAPTIONS.md` that names each held streamer or clip and the reason: missing HTTPS permission link, risky title word (`gta_filter.title_blocklist`, e.g. leak/doxx/adresse), failed render or missing subtitles, or a caption that fails the checks (misleading claims such as leak/exclusive/official, engagement bait such as "follow for part 2" or "like if", URLs, source lines, stock questions). The vertical render fits the whole source frame over a blurred background (no black bars).
+
 ## 8. Recordkeeping
 
 For each clip, retain its source reference, review result, caption, hashtags, and upload outcome. Do not store account passwords, access tokens, or other secrets in this document or in source control.

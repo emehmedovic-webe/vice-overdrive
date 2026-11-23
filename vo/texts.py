@@ -207,6 +207,10 @@ _CAPTION_EXTRAS = (
     (r"clip von|quelle|originalclip|material:|credit|🎥", "Quellen-/Credit-Zeile"),
     (r"was hättet ihr|was meint ihr|was sagt ihr|schreibt.*kommentar|👀", "Standardfrage"),
     (r"alternative|\bpasst\b|hinweis|anmerkung|überschrift|caption|hashtags?:", "Notiz statt Caption"),
+    # TikTok-Richtlinien: keine irreführenden Behauptungen, kein Engagement-Bait.
+    (r"\b(?:leak|geleakt|exklusiv|exclusive|offiziell|official)\b", "irreführende Behauptung (Leak/exklusiv/offiziell)"),
+    (r"folg(?:t|e) für|follow for|like wenn|like if|teil(?:t|e) (?:das|es)|markiere|tag a friend|\bgiveaway\b|gewinnspiel",
+     "Engagement-Bait"),
 )
 
 

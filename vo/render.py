@@ -224,7 +224,7 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
     write_ass(out_dir / "subs.ass", hook, subs, total, cfg, outro)
     # Gesamtes Originalbild proportional einpassen: kein Center-Crop. Dadurch bleibt eine im
     # Quellbild vorhandene Facecam auch bei Querformat-Clips im fertigen 9:16-Short sichtbar.
-    # Der unscharfe Hintergrund füllt die freien Flächen, das Original bleibt vollständig erhalten.
+    # Kein schwarzes Pad: der unscharfe Hintergrund füllt die freien Flächen oben/unten.
     fg_h = int(H * float(r.get("fg_height_ratio", 0.6))) // 2 * 2
     if teaser:
         head = ("[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[cv][ca];"
@@ -234,7 +234,7 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
     vf = (
         head +
         f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=24:2,eq=brightness=-0.12[bgb];"
-        f"[fg]scale={W}:{fg_h}:force_original_aspect_ratio=decrease,pad={W}:{fg_h}:(ow-iw)/2:(oh-ih)/2:color=black[fgs];"
+        f"[fg]scale={W}:{fg_h}:force_original_aspect_ratio=decrease[fgs];"
         f"[bgb][fgs]overlay=(W-w)/2:(H-h)/2"
         + (f",tpad=stop_duration={outro}:stop_mode=add:color={r.get('background', 'black')}" if outro > 0 else "")
         + ",ass=subs.ass,format=yuv420p[v]"
