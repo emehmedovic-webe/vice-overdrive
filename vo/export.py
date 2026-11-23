@@ -107,6 +107,28 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src / "short.mp4", folder / "video.mp4")
             (folder / "caption.txt").write_text(caption + "\n", encoding="utf-8")
+            review = """VICE OVERDRIVE — MANUELLE FREIGABE VOR DEM POSTEN
+
+STATUS: NICHT GEPRÜFT / NICHT POSTEN
+
+Video vollständig ansehen (nicht nur Stichproben):
+[ ] Streamer/Facecam ist klar und erkennbar sichtbar; Gesicht nicht abgeschnitten oder verdeckt.
+[ ] Bildausschnitt zeigt den relevanten Gameplay-Moment; keine wichtigen Inhalte abgeschnitten.
+[ ] Anfang, Ende, Übergänge, Hook, Wasserzeichen und alle Overlays geprüft.
+[ ] Untertitel stimmen vollständig mit dem gesprochenen Inhalt überein; keine erfundenen Wörter.
+[ ] Ton/Musik/Sounds geprüft; Nutzungsrechte für Audio geklärt.
+[ ] Chat, Namen und eingeblendete Inhalte auf Privates, Beleidigungen und Regelverstöße geprüft.
+[ ] Kein erkennbar problematischer Inhalt (z. B. Hass, Drohungen, Belästigung, Sexualisierung,
+    gefährliche Handlungen oder grafische/glorifizierte Gewalt).
+[ ] Quelle, Streamer-Zuordnung und konkrete Nutzungs-/Clipper-Freigabe anhand eines Belegs geprüft.
+[ ] Caption beschreibt exakt diesen Clip; Hashtags sind relevant und nicht irreführend.
+[ ] Keine künstliche Interaktion, gekauften Views/Follower oder Engagement-Bait.
+
+Erst nach ALLEN Häkchen manuell freigeben und selbst in TikTok hochladen.
+Wenn etwas unklar ist: NICHT posten. Ein sichtbarer Streamer oder ein Export allein beweist
+keine Nutzungsrechte und garantiert keine TikTok-Empfehlung.
+"""
+            (folder / "REVIEW_REQUIRED.txt").write_text(review, encoding="utf-8")
             rec = {"status": "prepared", **previous, "source_ids": sorted(_source_ids(clip)),
                    "video_id": clip.get("video_id"), "vod_offset": clip.get("vod_offset"),
                    "tiktok_status": "exported", "tiktok_at": iso(clock())}
