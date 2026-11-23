@@ -22,6 +22,9 @@ from .common import media_env
 W, H = 1080, 1920
 CAM_H = 750
 GAME_H = H - CAM_H
+# Stil "pip": Facecam-Kasten oben, Überschrift darunter.
+PIP_W, PIP_MAX_H, PIP_Y = 760, 560, 110
+PIP_HEAD_Y = 760
 ASSETS = Path(__file__).resolve().parent.parent / "assets" / "outro"
 
 _HEADER = """[Script Info]
@@ -80,9 +83,10 @@ def word_events(words: list[dict], start: float, end: float, blocked: list[tuple
 
 
 def write_body_ass(path: Path, *, headline: str, duration: float, words: list[dict], start: float,
-                   bubbles: list[dict] = (), punch: list[dict] = (), font: str = "Inter Display") -> None:
+                   bubbles: list[dict] = (), punch: list[dict] = (), font: str = "Inter Display",
+                   head_y: int = CAM_H) -> None:
     lines = [_HEADER.format(font=font)]
-    lines.append(f"Dialogue: 2,{_ts(0)},{_ts(duration)},Head,,0,0,0,,{{\\pos(540,{CAM_H})}}{_esc(wrap(headline))}")
+    lines.append(f"Dialogue: 2,{_ts(0)},{_ts(duration)},Head,,0,0,0,,{{\\pos(540,{head_y})}}{_esc(wrap(headline))}")
     for b in bubbles:
         lines.append(f"Dialogue: 3,{_ts(b['start'])},{_ts(b['end'])},Bubble,,0,0,0,,"
                      f"{{\\pos(540,1700)}}{_esc(wrap(b['text'], 32))}")
@@ -115,27 +119,56 @@ def _run(cmd: list[str], cwd: Path) -> None:
 def render_split(src: Path, out: Path, *, start: float, duration: float, facecam: dict, headline: str,
                  words: list[dict] = (), bubbles: list[dict] = (), punch: list[dict] = (),
                  game_x: float | None = None, blur: list[dict] = (), outro_seconds: float = 2.5, font: str = "Inter Display",
-                 max_bitrate: str = "6M") -> Path:
-    """facecam = {x, y, w, h} im auf 1920x1080 skalierten Quellbild. game_x = linker Rand des Gameplay-Ausschnitts."""
-    src, out = Path(src).resolve(), Path(out).resolve()
+                 max_bitrate: str = "6M", layout: str = "split") -> Path:
+    """facecam = {x, y, w, h} im auf 1920x1080 skalierten Quellbild. game_x = linker Rand des Gameplay-Ausschnitts.
+
+    layout "split": Facecam oben (1080x750), Gameplay unten.
+    layout "pip": Gameplay im ganzen Bild, Facecam komplett als Kasten oben (Enis 2026-11-23: Stil abwechseln,
+    Streamer immer ganz sichtbar).
+    """
+    if layout == "pip":
+        gw = 608  # 9:16 aus 1080 Höhe
+        gx = int(max(0, min(1920 - gw, (1920 - gw) / 2 if game_x is None else game_x)))
+        return _render(src, out, start=start, duration=duration, facecam=facecam, headline=headline, words=words,
+                       bubbles=bubbles, punch=punch, blur=blur, outro_seconds=outro_seconds, font=font,
+                       max_bitrate=max_bitrate, head_y=PIP_HEAD_Y,
+                       layout_vf=lambda fx, fy, fw, fh: (
+                           f"[s2]crop={gw}:1080:{gx}:0,scale={W}:{H}[game];"
+                           f"[s1]crop={fw}:{fh}:{fx}:{fy},scale={PIP_W}:{PIP_MAX_H}:force_original_aspect_ratio=decrease,"
+                           f"pad=iw+16:ih+16:8:8:white[cam];"
+                           f"[game][cam]overlay=(W-w)/2:{PIP_Y}"))
     gw = round(1080 * W / GAME_H) // 2 * 2  # 997 → Seitenverhältnis 1080:1170
     gx = int(max(0, min(1920 - gw, (1920 - gw) / 2 if game_x is None else game_x)))
+    return _render(src, out, start=start, duration=duration, facecam=facecam, headline=headline, words=words,
+                   bubbles=bubbles, punch=punch, blur=blur, outro_seconds=outro_seconds, font=font,
+                   max_bitrate=max_bitrate, head_y=CAM_H,
+                   layout_vf=lambda fx, fy, fw, fh: (
+                       # Ganze Facecam einpassen (nichts abschneiden), Rand mit unscharfer Kopie füllen.
+                       f"[s1]crop={fw}:{fh}:{fx}:{fy},split[c1][c2];"
+                       f"[c1]scale={W}:{CAM_H}:force_original_aspect_ratio=increase,crop={W}:{CAM_H},"
+                       f"boxblur=25:2,eq=brightness=-0.2[cbg];"
+                       f"[c2]scale={W}:{CAM_H}:force_original_aspect_ratio=decrease[cfg];"
+                       f"[cbg][cfg]overlay=(W-w)/2:(H-h)/2[cam];"
+                       f"[s2]crop={gw}:1080:{gx}:0,scale={W}:{GAME_H}[game];"
+                       f"[cam][game]vstack"))
+
+
+def _render(src: Path, out: Path, *, start, duration, facecam, headline, words, bubbles, punch, blur,
+            outro_seconds, font, max_bitrate, head_y, layout_vf) -> Path:
+    src, out = Path(src).resolve(), Path(out).resolve()
     fx, fy, fw, fh = (int(facecam[k]) for k in ("x", "y", "w", "h"))
     with tempfile.TemporaryDirectory(prefix="vo-split-") as tmp:
         t = Path(tmp)
         write_body_ass(t / "body.ass", headline=headline, duration=duration, words=list(words), start=start,
-                       bubbles=list(bubbles), punch=list(punch), font=font)
+                       bubbles=list(bubbles), punch=list(punch), font=font, head_y=head_y)
         # Eingebrannte Fremd-Untertitel o. Ä. unkenntlich machen (Boxen im 1920x1080-Bild).
         pre = "[0:v]scale=1920:1080,setsar=1"
         for i, bx in enumerate(blur):
             x, y, w, h = (int(bx[k]) for k in ("x", "y", "w", "h"))
             pre += (f"[p{i}];[p{i}]split[q{i}][r{i}];[r{i}]crop={w}:{h}:{x}:{y},boxblur=20:3[b{i}];"
                     f"[q{i}][b{i}]overlay={x}:{y}")
-        vf = (f"{pre},split[s1][s2];"
-              f"[s1]crop={fw}:{fh}:{fx}:{fy},scale={W}:{CAM_H}:force_original_aspect_ratio=increase,"
-              f"crop={W}:{CAM_H}[cam];"
-              f"[s2]crop={gw}:1080:{gx}:0,scale={W}:{GAME_H}[game];"
-              f"[cam][game]vstack,ass=body.ass,fps=30,setsar=1,format=yuv420p[v]")
+        vf = (f"{pre},split[s1][s2];" + layout_vf(fx, fy, fw, fh)
+              + ",ass=body.ass,fps=30,setsar=1,format=yuv420p[v]")
         enc = ["-c:v", "libx264", "-preset", "medium", "-crf", "21", "-maxrate", max_bitrate,
                "-bufsize", max_bitrate, "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2"]
         has_audio = bool(subprocess.run(
