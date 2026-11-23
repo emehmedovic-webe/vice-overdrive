@@ -25,6 +25,11 @@ def find(cfg: dict, login: str | None) -> dict | None:
     return next((s for s in streamers(cfg, only_active=False) if s["twitch_login"].lower() == login), None)
 
 
+def tiktok_handle(entry: dict) -> str:
+    """@-Handle des Streamers für die Caption (config: tiktok_handle, sonst Twitch-Login)."""
+    return "@" + (entry.get("tiktok_handle") or entry["twitch_login"]).lstrip("@").lower()
+
+
 def channel_url(entry: dict) -> str:
     """Hauptkanal des Streamers; channel_url im Eintrag überschreibt Twitch (z. B. YouTube)."""
     return entry.get("channel_url") or f"https://www.twitch.tv/{entry['twitch_login'].lower()}"
