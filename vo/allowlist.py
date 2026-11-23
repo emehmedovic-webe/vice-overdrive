@@ -43,7 +43,7 @@ def has_proof(entry: dict, field: str = "proof") -> bool:
     proof = entry.get(field)
     if not isinstance(proof, str):
         return False
-    return bool(re.search(r"https://[^\\s]+", proof.strip(), re.IGNORECASE))
+    return bool(re.search(r"https://\S+", proof.strip(), re.IGNORECASE))
 
 
 def credit_line(entry: dict) -> str:
