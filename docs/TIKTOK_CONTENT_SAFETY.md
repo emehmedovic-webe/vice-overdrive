@@ -15,6 +15,8 @@ Before scheduling or uploading, review the complete video, including the opening
 - Do not use misleading edits, deceptive hooks, fake claims, or captions that misrepresent what happens in the clip.
 - Do not publish a clip if its source, context, or rights status cannot be established.
 - Do not assume that cropping, subtitles, a reaction facecam, or other minor edits make someone else's footage authorized or sufficiently original.
+- The vertical renderer must preserve the complete source frame proportionally (fit/letterbox over a blurred background); do not center-crop landscape footage in a way that can remove the streamer facecam.
+- A clipper-program allowlist entry is not approved by a free-text note such as 'verbally confirmed'. The proof field must contain a verifiable HTTPS reference to the applicable VOD timestamp, program rules, or permission. Until then, automated clip processing must hold that streamer.
 - Prefer original gameplay, commentary, analysis, or substantial creative contribution. Obtain and document permission or another valid rights basis before using third-party streamer footage.
 - Check music and other audio separately for usage rights.
 
@@ -30,6 +32,7 @@ Before scheduling or uploading, review the complete video, including the opening
 A clip may proceed only after a human or automated review has checked:
 
 - [ ] Full video reviewed, including overlays, audio, subtitles, and ending.
+- [ ] Streamer facecam/person is clearly visible and not cropped out; the full source frame was preserved.
 - [ ] No apparent Community Guidelines violation.
 - [ ] Source and usage rights checked; third-party footage has an adequate rights basis.
 - [ ] Caption is accurate, original, and specific to this clip.
@@ -66,6 +69,10 @@ The screenshot did not show the individual restriction reasons. Do not guess why
 - Do not bypass TikTok moderation, account restrictions, or platform safeguards.
 - Keep publishing actions consistent with the creator's current authorization. A review pass is not permission to publish if the creator has not authorized that publishing flow.
 
-## 7. Recordkeeping
+## 7. Manual export approval
+
+Every generated TikTok export includes `REVIEW_REQUIRED.txt`. It starts in a NOT REVIEWED / DO NOT POST state. The person preparing the post must watch the complete exported MP4 and tick every item before uploading. The checklist is not an automated visual or legal determination. A full-frame fit protects against the renderer cropping out a facecam, but cannot prove that a facecam exists in the source or that the streamer is recognizable. Uncertain clips stay unpublished.
+
+## 8. Recordkeeping
 
 For each clip, retain its source reference, review result, caption, hashtags, and upload outcome. Do not store account passwords, access tokens, or other secrets in this document or in source control.

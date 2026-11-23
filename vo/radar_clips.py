@@ -153,7 +153,7 @@ def prepare_clips(report: dict, cfg: dict, data: Path, *, limit: int = DEFAULT_L
                 game = clip_game(clip, report.get("gta_categories", {}))
                 if game:
                     brief["game"] = game
-                out = make_short(brief, cfg, stage, stage, short_id, source_url=url, require_subtitles=False)
+                out = make_short(brief, cfg, stage, stage, short_id, source_url=url, require_subtitles=True)
                 video = out / "short.mp4"
                 if not 0 < probe(video)["duration"] <= 60:
                     raise ClipError("Ausgabedauer liegt außerhalb des Shorts-Limits.")
