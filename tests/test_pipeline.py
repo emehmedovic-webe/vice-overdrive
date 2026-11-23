@@ -257,7 +257,7 @@ class RadarClipTests(unittest.TestCase):
         calls = []
 
         def broken(url, platform, stage, seconds):
-            self.assertEqual(seconds, 59)
+            self.assertEqual(seconds, 64)
             (stage / "source.mp4.part").touch()
             calls.append(url)
             raise ClipError("Test: Clip nicht verfügbar.")
@@ -587,8 +587,9 @@ class AutopilotTests(unittest.TestCase):
                 {"id": "r1", "streamer_login": "xrohat", "view_count": 9},
                 {"id": "m0", "streamer_login": "montanablack88", "view_count": 3}]
         order = [c["id"] for c in mix_by_streamer(top)]
-        self.assertEqual(order[:3], ["t0", "r1", "m0"])  # abwechselnd, Rohat-Clip mit Aufrufen zuerst
-        self.assertEqual(order[3:5], ["t1", "r0"])
+        # abwechselnd; Streamer mit dem meistgesehenen Clip zuerst, je Streamer die meisten Aufrufe zuerst
+        self.assertEqual(order[:3], ["r1", "t0", "m0"])
+        self.assertEqual(order[3:5], ["r0", "t1"])
 
     def test_export_caption_is_only_description_and_hashtags(self):
         from vo.export import export_caption

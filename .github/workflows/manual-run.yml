@@ -39,7 +39,7 @@ jobs:
       - name: Werkzeuge für den Radar-Schnitt installieren (nur im Runner)
         if: inputs.step == 'radar-clips'
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core fonts-inter
           python3 -m venv "${RUNNER_TEMP}/vice-overdrive-venv"
           "${RUNNER_TEMP}/vice-overdrive-venv/bin/python" -m pip install 'yt-dlp[default]==2026.10.26'
       - name: Radar → Download → Schnitt (kein Plattform-Upload)
@@ -68,7 +68,7 @@ jobs:
       - name: Publish Dry-Run (YouTube + TikTok)
         if: inputs.step == 'publish-dry-run'
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core fonts-inter
           python3 -m vo selftest --out selftest-out
           python3 -m vo --data selftest-out publish youtube
           python3 -m vo --data selftest-out publish tiktok

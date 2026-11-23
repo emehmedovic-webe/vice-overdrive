@@ -24,12 +24,14 @@ MAX_PER_STREAMER = 2
 
 
 def mix_by_streamer(top: list[dict]) -> list[dict]:
-    """Abwechselnd nach Streamer sortieren. Innerhalb eines Streamers zuerst Clips mit Aufrufen,
-    sonst in Radar-Reihenfolge (schnellster Aufrufzuwachs zuerst)."""
+    """Abwechselnd nach Streamer sortieren, innerhalb eines Streamers die meistgesehenen Clips zuerst."""
     groups: dict[str, list[dict]] = {}
     for clip in top:
         groups.setdefault(str(clip.get("streamer_login") or "").casefold(), []).append(clip)
-    queues = [sorted(g, key=lambda c: not (c.get("view_count") or 0)) for g in groups.values()]
+    # Viral-Potenzial zuerst (Enis 2026-11-23): meiste Aufrufe, bei Gleichstand schnellster Zuwachs.
+    queues = [sorted(g, key=lambda c: (-(c.get("view_count") or 0), -(c.get("velocity_per_hour") or 0)))
+              for g in groups.values()]
+    queues.sort(key=lambda q: -(q[0].get("view_count") or 0) if q else 0)
     mixed: list[dict] = []
     while any(queues):
         for q in queues:

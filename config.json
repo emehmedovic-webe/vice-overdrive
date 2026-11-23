@@ -121,7 +121,7 @@
   "render": {
     "width": 1080,
     "height": 1920,
-    "max_seconds": 59,
+    "max_seconds": 64,
     "font": "DejaVu Sans",
     "background": "0x150d21",
     "_hinweis": "Gegen 'nicht originale Inhalte' (TikTok, 2026-11-18): großer Gameplay-Ausschnitt, Hook die ganze Zeit oben, stärkster Moment als Vorspann, deutsche Auto-Untertitel. Kein Wasserzeichen (Enis, 2026-11-23).",
@@ -132,7 +132,8 @@
     "whisper_model": "small",
     "watermark": "",
     "outro_seconds": 2.0,
-    "headline_font": "Inter Display"
+    "headline_font": "Inter Display",
+    "_hinweis_laenge": "Enis 2026-11-23: ganzer Clip (Twitch max. 60 s) + Vorspann + Abspann, nichts abschneiden."
   },
   "texts": {
     "base_hashtags_youtube": [
