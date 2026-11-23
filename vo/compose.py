@@ -10,6 +10,7 @@ Erwartet <ordner>/_roh/source.mp4, <ordner>/_roh/words.json und <ordner>/edit.js
   "caption": "Monte quatscht den Wachmann freundlich an und greift dann zum Elektroschocker.",
   "tags": ["#gta6", "#montanablack", "#elektroschocker"],
   "facecam": {...}, "game_x": 203,           # optional, sonst aus config.json
+  "layout": "split" | "pip",                 # pip = Gameplay ganz, Facecam als Kasten oben
   "blur": [{"x": 700, "y": 950, "w": 540, "h": 100}]   # optional: eingebrannte Fremd-Untertitel verwischen
 }
 Zeiten von bubbles/punch relativ zum Ausschnittsanfang. Schreibt video.mp4 + caption.txt.
@@ -46,6 +47,7 @@ def compose(folder: Path, cfg: dict) -> Path:
                        headline=edit["headline"], words=load_words(folder / "_roh" / "words.json"),
                        bubbles=edit.get("bubbles", []), punch=edit.get("punch", []),
                        outro_seconds=float(r.get("outro_seconds", 2.5)),
-                       font=r.get("headline_font", "Inter Display"), max_bitrate="3M")
+                       font=r.get("headline_font", "Inter Display"), max_bitrate="3M",
+                       layout=edit.get("layout", "split"))
     (folder / "caption.txt").write_text(caption + "\n", encoding="utf-8")
     return out

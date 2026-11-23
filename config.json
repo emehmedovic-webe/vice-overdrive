@@ -77,7 +77,7 @@
       {
         "twitch_login": "trymacs",
         "tiktok_handle": "@trymacs",
-        "facecam": {"x": 1437, "y": 600, "w": 483, "h": 480},
+        "facecam": {"x": 1430, "y": 560, "w": 490, "h": 520},
         "game_x": 300,
         "name": "Trymacs",
         "active": true,
