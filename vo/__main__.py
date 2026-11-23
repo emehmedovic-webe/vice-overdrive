@@ -104,6 +104,7 @@ def main(argv=None) -> None:
     ex.add_argument("--per-streamer", type=int, default=2, help="Höchstens so viele Clips pro Streamer")
     ex.add_argument("--all-recent", action="store_true",
                     help="Alle GTA-Clips der letzten 7 Tage berücksichtigen, nicht nur die mit neuem Aufrufzuwachs")
+    ex.add_argument("--redo", default="", help="Komma-getrennte Twitch-Clip-Slugs gezielt neu exportieren")
     cp = sub.add_parser("compose", help="Format v3 aus Rohmaterial (_roh/source.mp4 + words.json) und edit.json bauen")
     cp.add_argument("folder", type=Path)
     pb = sub.add_parser("publish"); pb.add_argument("target", choices=["youtube", "tiktok"])
@@ -150,7 +151,8 @@ def main(argv=None) -> None:
         if a.all_recent:
             cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 200}}
         rows = run_export(cfg, data.resolve() / "autopilot", a.out, limit=max(1, min(a.limit, 40)),
-                          per_streamer=max(1, min(a.per_streamer, 5)))
+                          per_streamer=max(1, min(a.per_streamer, 5)),
+                          redo=frozenset(x.strip() for x in a.redo.split(",") if x.strip()))
         print(f"Export: {len(rows)} Clips in {a.out}")
         notes = a.out / "CAPTIONS.md"
         if notes.is_file() and "Zurückgehalten" in notes.read_text(encoding="utf-8"):
