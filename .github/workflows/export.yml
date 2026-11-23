@@ -21,6 +21,10 @@ on:
         description: "Alle GTA-Clips der letzten 7 Tage (nicht nur neuer Aufrufzuwachs)"
         type: boolean
         default: false
+      all_time:
+        description: "Meistgesehene GTA-Clips aller Zeiten (nicht nur 7 Tage)"
+        type: boolean
+        default: false
       redo:
         description: "Twitch-Clip-Slugs (Komma-getrennt), die gezielt neu geschnitten werden"
         type: string
@@ -72,9 +76,10 @@ jobs:
           PER_STREAMER: ${{ inputs.per_streamer || 2 }}
           ALL_RECENT: ${{ inputs.all_recent && '--all-recent' || '' }}
           REDO: ${{ inputs.redo || '' }}
+          ALL_TIME: ${{ inputs.all_time && '--all-time' || '' }}
         run: |
           export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
-          python3 -m vo export --out tiktok-export --limit "${LIMIT:-15}" --per-streamer "${PER_STREAMER:-2}" ${ALL_RECENT} --redo "${REDO}"
+          python3 -m vo export --out tiktok-export --limit "${LIMIT:-15}" --per-streamer "${PER_STREAMER:-2}" ${ALL_RECENT} ${ALL_TIME} --redo "${REDO}"
       - name: Zustand sichern
         if: always()
         uses: actions/cache/save@v4

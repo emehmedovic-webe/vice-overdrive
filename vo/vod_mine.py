@@ -20,7 +20,8 @@ from .twitch import Helix
 
 GTA_TITLE = re.compile(r"\bgta\b|grand theft auto|vice city|\bgta ?(?:6|vi)\b", re.I)
 YTDLP = ["yt-dlp", "--ignore-config", "--no-plugin-dirs", "--no-cache-dir", "--no-playlist",
-         "--socket-timeout", "20", "--retries", "3", "--fragment-retries", "3", "--no-progress"]
+         "--socket-timeout", "20", "--retries", "3", "--fragment-retries", "3", "--no-progress",
+         "--concurrent-fragments", "16"]
 
 
 def loudness_curve(audio: Path) -> list[float]:
@@ -81,12 +82,14 @@ def mine(cfg: dict, data: Path, out: Path, *, per_vod: int = 4, vods_per_streame
             work = data / "vod-work" / vid
             work.mkdir(parents=True, exist_ok=True)
             audio = work / "audio.m4a"
+            print(f"{login} {vid}: {vod.get('title', '')[:60]} ({vod.get('duration')})", flush=True)
             try:
                 if not audio.is_file():
                     subprocess.run([*YTDLP, "-f", "Audio_Only/bestaudio", "-o", str(audio), "--", url],
-                                   check=True, env=media_env(), timeout=3000,
+                                   check=True, env=media_env(), timeout=1500,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 curve = loudness_curve(audio)
+                print(f"{login} {vid}: Ton geladen, {len(curve)} s", flush=True)
             except (subprocess.SubprocessError, OSError) as exc:
                 print(f"{login} {vid}: Ton nicht ladbar ({str(exc)[:120]})", flush=True)
                 continue

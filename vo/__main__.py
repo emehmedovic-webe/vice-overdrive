@@ -104,6 +104,7 @@ def main(argv=None) -> None:
     ex.add_argument("--per-streamer", type=int, default=2, help="Höchstens so viele Clips pro Streamer")
     ex.add_argument("--all-recent", action="store_true",
                     help="Alle GTA-Clips der letzten 7 Tage berücksichtigen, nicht nur die mit neuem Aufrufzuwachs")
+    ex.add_argument("--all-time", action="store_true", help="Meistgesehene Clips aller Zeiten statt nur 7 Tage")
     ex.add_argument("--redo", default="", help="Komma-getrennte Twitch-Clip-Slugs gezielt neu exportieren")
     vm = sub.add_parser("vod-mine", help="Laute Momente aus GTA-VODs der Allowlist als Rohmaterial holen")
     vm.add_argument("--out", type=Path, default=Path("vod-momente"))
@@ -155,6 +156,8 @@ def main(argv=None) -> None:
         from .export import run_export
         if a.all_recent:
             cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 200}}
+        if a.all_time:
+            cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 400, "all_time": True}}
         rows = run_export(cfg, data.resolve() / "autopilot", a.out, limit=max(1, min(a.limit, 40)),
                           per_streamer=max(1, min(a.per_streamer, 5)),
                           redo=frozenset(x.strip() for x in a.redo.split(",") if x.strip()))
