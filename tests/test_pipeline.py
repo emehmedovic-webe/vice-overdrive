@@ -299,9 +299,9 @@ class RadarClipTests(unittest.TestCase):
                 return Path(shutil.copyfile(source, stage / "source.mp4"))
 
             # Offline gibt es kein Whisper; Untertitel sind für Radar-Clips Pflicht, also hier vorgeben.
-            fake_subs = [{"start": 0.0, "end": 1.0, "text": "Testuntertitel"}]
+            fake_words = [{"start": 0.0, "end": 0.5, "word": "Test"}, {"start": 0.5, "end": 1.0, "word": "untertitel"}]
             with patch("urllib.request.urlopen", side_effect=AssertionError("Kein Netzwerk im Test")), \
-                    patch("vo.render.auto_subtitles", return_value=fake_subs):
+                    patch("vo.render.whisper_words", return_value=fake_words):
                 result = prepare_clips(report, cfg, root, download=fake_download)
                 self.assertEqual(urls, [self._twitch()["url"], self._youtube()["url"]])
                 self.assertEqual(result["rendered"], ["twitch-EpicClip", "youtube-AbCd0123_-x"])
@@ -336,6 +336,9 @@ class RadarClipTests(unittest.TestCase):
                     self.assertTrue(row["payload"]["snippet"]["title"].endswith("#Shorts"))
                     self.assertEqual(row["payload"]["status"]["privacyStatus"], "private")
                 self.assertFalse(list(root.rglob("source.mp4")))
+                # Format v3: Monte hat eine Facecam-Box → Hochformat 1080x1920 + Rohschnitt zum Nachbearbeiten.
+                self.assertTrue((root / "shorts" / "twitch-EpicClip" / "rohschnitt.mp4").is_file())
+                self.assertTrue((root / "shorts" / "twitch-EpicClip" / "words.json").is_file())
                 second = prepare_clips(report, cfg, root, download=fake_download)
                 self.assertEqual(second["rendered"], [])
                 self.assertEqual(len(urls), 2)
@@ -522,7 +525,7 @@ class AutopilotTests(unittest.TestCase):
             folder = Path(tmp) / "export" / rows[0]["file"]
             self.assertTrue((folder / "video.mp4").is_file())
             caption = (folder / "caption.txt").read_text(encoding="utf-8")
-            self.assertEqual(caption, "Monte fährt Auto.\n\n#GTA6 #MontanaBlack #fyp #fy #viral\n")
+            self.assertEqual(caption, "Monte fährt Auto.\n\n@montanablack #gta6 #montanablack\n")
             self.assertIn("twitch.tv", (Path(tmp) / "export" / "CAPTIONS.md").read_text(encoding="utf-8"))
             state = json.loads((root / "state" / "autopilot.json").read_text(encoding="utf-8"))
             self.assertEqual(state["clips"]["twitch-race-b"]["tiktok_status"], "exported")
@@ -601,21 +604,31 @@ class AutopilotTests(unittest.TestCase):
             texts = build_texts(brief, CFG)
             self.assertIn("twitch.tv", texts["tiktok"]["caption"])
             write_json(out / "manifest.json", {"texts": texts, "source": "https://www.twitch.tv/x/clip/y",
+                                               "streamer": "montanablack88",
                                                "tiktok_description": tiktok_description(brief, CFG)})
-            caption = export_caption(out)
+            caption = export_caption(out, CFG)
             desc, tags = caption.split("\n\n")
+            handle, *tags = tags.split()
+            self.assertEqual(handle, "@montanablack")
             self.assertEqual(desc, "Monte springt in einen roten SUV und fährt durch Vice City.")
-            self.assertTrue(all(t.startswith("#") for t in tags.split()))
-            self.assertLessEqual(len(tags.split()), 5)
-            self.assertEqual(tags.split()[-3:], ["#fyp", "#fy", "#viral"])
+            self.assertTrue(all(t.startswith("#") for t in tags))
+            self.assertIn(len(tags), range(2, 5))
+            self.assertEqual(tags[:2], ["#gta6", "#montanablack"])
+            self.assertFalse({"#fyp", "#fy", "#viral"} & set(tags))
             self.assertEqual(tiktok_caption_problems(caption), [])
         bad = ["Text.\n\n#GTA6\nhttps://twitch.tv/x", "Text 🎥 Clip von xQc.\n\n#GTA6",
                "Text. Was hättet ihr gemacht?\n\n#GTA6", "Gleich. Gleich.\n\n#GTA6",
                "Text.\n\n#a #b #c #d #e #f", "Text.\n\n#GTA6\n\nDrei Alternativen #GTAVI",
                "Passt gut zum Clip.\n\n#GTA6", "Nur Text ohne Hashtags",
-               "Exklusiver GTA 6 Leak von Monte.\n\n#gta6 #fyp #fy #viral",
-               "Monte fährt Auto. Folgt für Teil 2.\n\n#gta6 #fyp #fy #viral",
-               "Monte fährt Auto. Like wenn du lachen musstest.\n\n#gta6 #fyp #fy #viral"]
+               "Exklusiver GTA 6 Leak von Monte.\n\n@montanablack #gta6 #montanablack",
+               "Monte fährt Auto. Folgt für Teil 2.\n\n@montanablack #gta6 #montanablack",
+               "Monte fährt Auto. Like wenn du lachen musstest.\n\n@montanablack #gta6 #montanablack",
+               "Monte fährt Auto.\n\n#gta6 #montanablack",
+               "Monte fährt Auto.\n\n@montanablack #gta6",
+               "Monte fährt Auto.\n\n@montanablack #gta6 #montanablack #fyp",
+               "Monte fährt Auto.\n\n#gta6 @montanablack #montanablack"]
+        self.assertEqual(tiktok_caption_problems(
+            "Monte fährt Auto.\n\n@montanablack #gta6 #montanablack #elektroschocker"), [])
         for caption in bad:
             with self.subTest(caption=caption):
                 self.assertTrue(tiktok_caption_problems(caption))
@@ -647,7 +660,9 @@ class AutopilotTests(unittest.TestCase):
                "#GTA6 #MontanaBlack #GTAVI @montanablack88")
         manifest = {"source": "https://www.twitch.tv/montanablack88/clip/x", "credit": "MontanaBlack",
                     "texts": {"tiktok": {"caption": raw, "hashtags": ["#GTA6", "#MontanaBlack", "#GTAVI"]}}}
-        posted = tiktok_post_manifest(manifest)["texts"]["tiktok"]["caption"]
+        manifest["streamer"] = "montanablack88"
+        posted = tiktok_post_manifest(manifest, CFG)["texts"]["tiktok"]["caption"]
+        self.assertTrue(posted.endswith("\n\n@montanablack #gta6 #montanablack #gtavi"))
         self.assertEqual(tiktok_caption_problems(posted), [])
         self.assertNotIn("http", posted)
         self.assertNotIn("Clip von", posted)
@@ -767,7 +782,7 @@ class AutopilotTests(unittest.TestCase):
             kw = {"tiktok_inbox": True, "tt_token": lambda *a: "fake", "tt_upload": fake_upload}
             first = self._cycle(data, self._item(), **kw)
             self.assertEqual(first["tiktok"]["status"], "tiktok_inbox_pending")
-            self.assertTrue(next(data.glob("shorts/*/caption.txt")).read_text().endswith("#fyp #fy #viral\n"))
+            self.assertTrue(next(data.glob("shorts/*/caption.txt")).read_text().endswith("\n\n@montanablack #gtav #montanablack #verfolgungsjagd #gtagameplay\n"))
             with patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
                 second = run_cycle(CFG, data, **kw, radar=lambda *a: self.fail("Nicht neu rendern"),
                                    tt_fetch_status=lambda pid, tok: {"status": "SEND_TO_USER_INBOX"},
@@ -849,7 +864,7 @@ class TextAndRightsTests(unittest.TestCase):
                 self.assertLessEqual(description.count(topic), 1)
                 self.assertIn("Originalclip: https://clips.twitch.tv/Test", description)
                 self.assertIn("https://www.twitch.tv/montanablack88", caption)
-                self.assertEqual(len(texts["tiktok"]["hashtags"]), 5)
+                self.assertEqual(len(texts["tiktok"]["hashtags"]), 4)
                 self.assertEqual(len(texts["youtube"]["tags"]), 8)
                 self.assertIn("#GTA6", caption)
                 self.assertNotIn("#GTAV ", caption)
@@ -860,7 +875,8 @@ class TextAndRightsTests(unittest.TestCase):
         t = build_texts({"topic": "Polizeiflucht am Strand", "keywords": ["Vice City"]}, CFG)
         self.assertTrue(t["youtube"]["title"].endswith("#Shorts"))
         self.assertLessEqual(len(t["youtube"]["title"]), 100)
-        self.assertIn("#gta6 #gtavi #fyp #fy #viral", t["tiktok"]["caption"])
+        self.assertIn("#gta6 #gtavi", t["tiktok"]["caption"])
+        self.assertNotIn("#fyp", t["tiktok"]["caption"])
         self.assertNotEqual(t["youtube"]["description"], t["tiktok"]["caption"])
 
     def test_long_title_truncated(self):
@@ -1077,6 +1093,32 @@ class ActionsUploadGuardTest(unittest.TestCase):
                 patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "VO_ACTIONS_UPLOAD": ""}):
             with self.assertRaises(ValueError):
                 run_cycle(CFG, Path(tmp), mode="private", radar=lambda *a: self.fail("kein Radar"))
+
+
+class SplitFormatTest(unittest.TestCase):
+    def test_word_events_use_exact_words_and_skip_punch(self):
+        from vo.split_render import word_events
+        words = [{"start": 10.0, "end": 10.3, "word": "„Gib"}, {"start": 10.4, "end": 10.8, "word": "Cash!"},
+                 {"start": 12.0, "end": 12.4, "word": "später"}, {"start": 30.0, "end": 30.2, "word": "weg"}]
+        ev = word_events(words, 10.0, 20.0, blocked=[(1.9, 3.0)])
+        self.assertEqual([e[2] for e in ev], ["GIB", "CASH!"])
+        self.assertAlmostEqual(ev[0][0], 0.0)
+
+    @unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg fehlt")
+    def test_render_split_makes_vertical_video_with_outro(self):
+        from vo.split_render import render_split
+        from vo.render import probe
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src.mp4"
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=1920x1080:rate=30",
+                            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "2",
+                            "-c:v", "libx264", "-c:a", "aac", "-shortest", str(src)], check=True)
+            out = render_split(src, Path(tmp) / "out.mp4", start=0, duration=1.5,
+                               facecam={"x": 1200, "y": 720, "w": 520, "h": 360}, headline="Test Überschrift",
+                               words=[{"start": 0.2, "end": 0.6, "word": "Hallo"}], outro_seconds=1.0)
+            info = probe(out)
+            self.assertEqual((info["width"], info["height"]), (1080, 1920))
+            self.assertAlmostEqual(info["duration"], 2.5, delta=0.2)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ Before scheduling or uploading, review the complete video, including the opening
 
 - Write a distinct caption that accurately describes the individual clip.
 - Avoid spam, repeated boilerplate, misleading engagement bait, and irrelevant hashtags.
-- Use only relevant hashtags. Include #fy and #fyp as requested, but do not treat them as a way to bypass moderation or guarantee reach.
+- Use only relevant hashtags. Creator decision 2026-11-23: caption = one accurate sentence, blank line, then `@streamer` and 2–4 relevant hashtags (`#gta6 #<streamer>` + one topic tag). No #fyp/#fy/#viral. Hashtags never bypass moderation or guarantee reach.
 - Do not claim that a clip is official, exclusive, leaked, or confirmed unless that is demonstrably true.
 
 ## 3. Pre-publish checklist

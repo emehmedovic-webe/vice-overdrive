@@ -40,7 +40,7 @@ def mix_by_streamer(top: list[dict]) -> list[dict]:
     return mixed
 
 
-def export_caption(src: Path) -> str:
+def export_caption(src: Path, cfg: dict | None = None, streamer: str | None = None) -> str:
     """Caption für den Export: nur Beschreibung + Hashtags, ohne Link, Credit oder Standardfrage.
 
     Quelle und Rechte bleiben im Manifest, im Autopilot-Zustand und in CAPTIONS.md (intern).
@@ -53,7 +53,8 @@ def export_caption(src: Path) -> str:
         raw = (src / "tiktok.txt").read_text(encoding="utf-8") if (src / "tiktok.txt").is_file() else ""
         hashtags = hashtags or re.findall(r"(?<!\w)#\w+", raw)
         description = re.sub(r"(?<!\w)#\w+", "", raw)
-    return tiktok_export_caption(description, hashtags)
+    entry = allowlist.find(cfg, manifest.get("streamer") or streamer) if cfg else None
+    return tiktok_export_caption(description, hashtags, allowlist.tiktok_handle(entry) if entry else "")
 
 
 def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15, per_streamer: int = MAX_PER_STREAMER,
@@ -124,13 +125,18 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15, per_streame
             name = f"{len(exported) + 1:02d}_{streamer}_{slug}" + ("_PRUEFEN-evtl-schon-in-Inbox" if check else "")
             folder = out / name
             try:
-                caption = export_caption(src)
+                caption = export_caption(src, cfg, streamer)
             except ValueError as exc:
                 held.append({"streamer": streamer, "title": title, "source": clip.get("url", ""),
                              "reason": f"Caption-Prüfung: {exc}"})
                 continue
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src / "short.mp4", folder / "video.mp4")
+            # Format v3: Rohschnitt + Wortliste zum Nachbearbeiten (eigene Überschrift/Kommentare). Nie posten.
+            for raw, name_ in (("rohschnitt.mp4", "source.mp4"), ("words.json", "words.json")):
+                if (src / raw).is_file():
+                    (folder / "_roh").mkdir(exist_ok=True)
+                    shutil.copyfile(src / raw, folder / "_roh" / name_)
             (folder / "caption.txt").write_text(caption + "\n", encoding="utf-8")
             review = """VICE OVERDRIVE — MANUELLE FREIGABE VOR DEM POSTEN
 

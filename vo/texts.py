@@ -12,9 +12,11 @@ from .clip_game import GAME_NAMES, hashtags
 
 YT_TITLE_MAX = 100
 TIKTOK_CAPTION_MAX = 2200
-TIKTOK_HASHTAG_MAX = 5
-# Enis 2026-11-18: #fyp, #fy und #viral stehen in jeder TikTok-Caption (bleiben 2 Plätze frei).
-TIKTOK_FIXED_TAGS = ("#fyp", "#fy", "#viral")
+TIKTOK_HASHTAG_MAX = 4
+TIKTOK_HASHTAG_MIN = 2
+# Enis 2026-11-23 (neues Format): kein #fyp/#fy/#viral mehr, stattdessen @streamer + 2–4 passende
+# Hashtags (#gta6 #<streamer> + ein Thema-Tag).
+TIKTOK_FIXED_TAGS: tuple[str, ...] = ()
 
 # Nur belegbare Themen aus dem Clip-Titel oder einer bereits erkannten Szene ableiten.
 _ANGLES = (
@@ -170,7 +172,7 @@ def build_texts(brief: dict, cfg: dict) -> dict:
 
     if sum(t.startswith("#") and t.casefold() not in TIKTOK_FIXED_TAGS
            for t in _uniq(extra_tags)) > TIKTOK_HASHTAG_MAX - len(TIKTOK_FIXED_TAGS):
-        raise ValueError("TikTok-Limit: Die Pflicht-Tags passen nicht zusammen mit #fyp, #fy und #viral.")
+        raise ValueError("TikTok-Limit: Zu viele Pflicht-Tags für eine Caption.")
     tt_tags = _tiktok_hashtags(extra_tags + tt_base[:1] + [creator_tag] + tt_base +
                                [_tag(k).lower() for k in keywords])
     tt_tags += [t for t in _uniq(extra_tags) if t.startswith("@")]
@@ -219,18 +221,23 @@ def _sentences(text: str) -> list[str]:
 
 
 def tiktok_caption_problems(caption: str) -> list[str]:
-    """Prüft das Format: Beschreibung, eine Leerzeile, eine Zeile nur mit 1–5 Hashtags. Sonst nichts."""
+    """Prüft das Format: ein Satz, Leerzeile, dann eine Zeile mit @streamer und 2–4 Hashtags. Sonst nichts."""
     problems = []
     blocks = caption.strip().split("\n\n")
     if len(blocks) != 2 or "\n" in blocks[0].strip() or "\n" in blocks[1].strip():
-        return ["Caption muss genau aus Beschreibung, Leerzeile und einer Hashtag-Zeile bestehen."]
-    desc, tags = blocks[0].strip(), blocks[1].strip().split()
+        return ["Caption muss genau aus einem Satz, Leerzeile und einer Zeile @streamer + Hashtags bestehen."]
+    desc, line = blocks[0].strip(), blocks[1].strip().split()
+    handles = [t for t in line if t.startswith("@")]
+    tags = [t for t in line if not t.startswith("@")]
     if not desc or "#" in desc or "@" in desc:
         problems.append("Beschreibung fehlt oder enthält Hashtags/Handles.")
-    if not 0 < len(tags) <= TIKTOK_HASHTAG_MAX or not all(re.fullmatch(r"#\w+", t) for t in tags):
-        problems.append(f"Hashtag-Zeile muss 1–{TIKTOK_HASHTAG_MAX} Hashtags und sonst nichts enthalten.")
-    if not set(TIKTOK_FIXED_TAGS).issubset(t.casefold() for t in tags):
-        problems.append("TikTok-Caption braucht #fyp, #fy und #viral.")
+    if len(handles) != 1 or not line[0].startswith("@") or not re.fullmatch(r"@[\w.]+", handles[0]):
+        problems.append("Zeile muss mit genau einem @streamer beginnen.")
+    if (not TIKTOK_HASHTAG_MIN <= len(tags) <= TIKTOK_HASHTAG_MAX
+            or not all(re.fullmatch(r"#\w+", t) for t in tags)):
+        problems.append(f"Nach @streamer müssen {TIKTOK_HASHTAG_MIN}–{TIKTOK_HASHTAG_MAX} Hashtags stehen, sonst nichts.")
+    if any(t.casefold() in ("#fyp", "#fy", "#viral", "#foryou", "#foryoupage") for t in tags):
+        problems.append("Keine Reichweiten-Tags (#fyp/#fy/#viral) – nur passende Hashtags.")
     if len({t.casefold() for t in tags}) != len(tags):
         problems.append("Doppelte Hashtags.")
     for pattern, label in _CAPTION_EXTRAS:
@@ -248,8 +255,8 @@ def tiktok_caption_problems(caption: str) -> list[str]:
     return problems
 
 
-def tiktok_export_caption(description: str, hashtags: list[str]) -> str:
-    """Caption zum Selbstposten: nur Beschreibung + eine Hashtag-Zeile. Quelle bleibt intern."""
+def tiktok_export_caption(description: str, hashtags: list[str], handle: str = "") -> str:
+    """Caption zum Selbstposten: ein Satz + Zeile mit @streamer und 2–4 Hashtags. Link/Credit bleiben intern."""
     desc = re.sub(r"https?://\S+", "", description)
     desc = " ".join(line.strip() for line in desc.splitlines()
                     if line.strip() and not re.search(r"clip von|originalclip|quelle|material:|🎥", line, re.I))
@@ -261,8 +268,9 @@ def tiktok_export_caption(description: str, hashtags: list[str]) -> str:
         if s and s.strip(" .!?…").casefold() not in {u.strip(" .!?…").casefold() for u in unique}:
             unique.append(s)
     desc = " ".join(unique)
-    tags = _tiktok_hashtags(hashtags)
-    caption = f"{desc}\n\n{' '.join(tags)}"
+    tags = [t.lower() for t in _tiktok_hashtags(hashtags)]
+    handle = handle or next((h for h in hashtags if h.startswith("@")), "")
+    caption = f"{desc}\n\n{' '.join([handle, *tags] if handle else tags)}"
     problems = tiktok_caption_problems(caption)
     if problems:
         raise ValueError(" ".join(problems))

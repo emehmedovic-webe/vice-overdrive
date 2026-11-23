@@ -104,6 +104,8 @@ def main(argv=None) -> None:
     ex.add_argument("--per-streamer", type=int, default=2, help="Höchstens so viele Clips pro Streamer")
     ex.add_argument("--all-recent", action="store_true",
                     help="Alle GTA-Clips der letzten 7 Tage berücksichtigen, nicht nur die mit neuem Aufrufzuwachs")
+    cp = sub.add_parser("compose", help="Format v3 aus Rohmaterial (_roh/source.mp4 + words.json) und edit.json bauen")
+    cp.add_argument("folder", type=Path)
     pb = sub.add_parser("publish"); pb.add_argument("target", choices=["youtube", "tiktok"])
     pb.add_argument("--live", action="store_true", help="Wirklich veröffentlichen (nur freigegebene)")
     st = sub.add_parser("selftest"); st.add_argument("--out", default="selftest-out")
@@ -154,6 +156,9 @@ def main(argv=None) -> None:
         if notes.is_file() and "Zurückgehalten" in notes.read_text(encoding="utf-8"):
             print(notes.read_text(encoding="utf-8").split("# Zurückgehalten", 1)[1])
         return 0
+    elif a.cmd == "compose":
+        from .compose import compose
+        print(compose(a.folder, cfg))
     elif a.cmd == "youtube-check":
         from .youtube_check import check
         return check(cfg["youtube_channel"])

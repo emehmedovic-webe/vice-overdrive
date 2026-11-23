@@ -17,11 +17,13 @@ The exact per-video restriction reasons were not opened in the screenshots and a
 - Review the complete rendered clip, captions, hashtags, audio, subtitles, overlays, and source context before it enters an upload queue.
 - Verify source rights. A streamer clip is not automatically authorized because it is cropped, subtitled, or includes a facecam. If permission or another valid rights basis is unclear, stop and ask for human review.
 - Reject or hold content that may violate TikTok Community Guidelines or be ineligible for recommendation. Do not claim a review guarantees approval or reach.
-- Captions must be unique, accurate, and relevant to the individual clip. Use relevant hashtags only; include `#fy` and `#fyp` as the creator requested, but never as an evasion tactic or reach guarantee.
+- Captions must be unique, accurate, and relevant to the individual clip. Use relevant hashtags only: `@streamer` plus 2–4 relevant hashtags (creator decision 2026-11-23, replaces the earlier `#fy`/`#fyp` request); never as an evasion tactic or reach guarantee.
 - Never buy or use fake followers, likes, views, comments, bots, or engagement exchanges.
 - If any check fails or confidence is insufficient, do not upload. Flag the exact reason for manual review.
 - Do not bypass TikTok moderation or platform safeguards.
 - Do not publish automatically without the creator's explicit authorization for the configured publishing flow.
 - Do not change or remove the three restricted posts automatically. Do not state that their precise restriction reason is known unless the creator supplies the individual detail screen.
+
+Video format (creator decision 2026-11-23, after TikTok flagged reframed clips as "Nicht originale Inhalte"): facecam top, gameplay bottom, own headline box, word-by-word subtitles of the exact spoken words, own comments only where true, supercar outro. See `vo/split_render.py` and `python -m vo compose`.
 
 When making project changes, preserve existing work and inspect the current branch/status first. Do not overwrite parallel work.

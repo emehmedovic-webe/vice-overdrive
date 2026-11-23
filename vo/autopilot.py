@@ -257,21 +257,22 @@ def tiktok_local_token(data: Path, account: str, mode: str = "inbox") -> str:
     return access
 
 
-def tiktok_post_manifest(manifest: dict) -> dict:
+def tiktok_post_manifest(manifest: dict, cfg: dict | None = None) -> dict:
     """Kopie fürs Posten: Caption nur Beschreibung + Hashtags. Quelle/Credit bleiben im Manifest (intern)."""
     tiktok = manifest["texts"]["tiktok"]
     raw = tiktok["caption"]
     description = ((manifest.get("autopilot") or {}).get("observation") or manifest.get("tiktok_description")
                    or re.sub(r"(?<!\w)#\w+", "", raw))
     hashtags = tiktok.get("hashtags") or re.findall(r"(?<!\w)#\w+", raw)
-    clean = tiktok_export_caption(description, hashtags)
+    entry = allowlist.find(cfg, manifest.get("streamer")) if cfg else None
+    clean = tiktok_export_caption(description, hashtags, allowlist.tiktok_handle(entry) if entry else "")
     return {**manifest, "texts": {**manifest["texts"], "tiktok": {**tiktok, "caption": clean}}}
 
 
 def _send_tiktok(video, manifest, cfg, data, state, state_path, rec, clock, token, upload):
     if cfg["tiktok"]["mode"] == "direct":
         try:
-            manifest = tiktok_post_manifest(manifest)
+            manifest = tiktok_post_manifest(manifest, cfg)
         except (KeyError, ValueError) as exc:
             print(f"TikTok-Caption ungültig, nicht gesendet: {str(exc)[:200]}", flush=True)
             return {"status": "tiktok_caption_invalid"}
@@ -465,7 +466,7 @@ def run_cycle(cfg: dict, data: Path, *, mode: str = "off", model: str = MODELS[0
         else:
             _save_copy(out, manifest, cfg, game, insights, clip.get("title", ""))
         try:
-            ready_caption = tiktok_post_manifest(manifest)["texts"]["tiktok"]["caption"]
+            ready_caption = tiktok_post_manifest(manifest, cfg)["texts"]["tiktok"]["caption"]
             (out / "caption.txt").write_text(ready_caption + "\n", encoding="utf-8")
         except (KeyError, OSError, ValueError) as exc:
             print(f"TikTok-Caption ungültig, nicht gesendet: {str(exc)[:200]}", flush=True)

@@ -166,8 +166,8 @@ def loudest_moment(src: Path, window: float = 0.5) -> float | None:
     return best_t
 
 
-def auto_subtitles(src: Path, start: float, duration: float, model: str = "small") -> list[dict]:
-    """Deutsche Untertitel per faster-whisper (lokal, kostenlos). Leer, wenn nicht installiert."""
+def whisper_words(src: Path, start: float, duration: float, model: str = "small") -> list[dict]:
+    """Gesprochene Wörter mit Zeitstempeln (faster-whisper, lokal, kostenlos). Leer, wenn nicht installiert."""
     try:
         from faster_whisper import WhisperModel  # nur im Actions-Runner installiert
     except ImportError:
@@ -181,21 +181,32 @@ def auto_subtitles(src: Path, start: float, duration: float, model: str = "small
         audio = np.frombuffer(raw, dtype=np.float32)
         segs, _ = WhisperModel(model, device="cpu", compute_type="int8").transcribe(
             audio, language="de", vad_filter=True, word_timestamps=True)
-        words = [w for seg in segs for w in (seg.words or [])]
+        # Zeiten absolut in der Quelldatei (start + Position im Ausschnitt).
+        return [{"start": round(start + max(0.0, w.start), 3), "end": round(start + max(0.0, w.end), 3),
+                 "word": w.word.strip()}
+                for seg in segs for w in (seg.words or []) if w.word.strip()]
     except Exception as exc:  # Untertitel sind ein Extra, kein Grund für einen Abbruch
         print(f"Untertitel übersprungen: {str(exc)[:200]}", flush=True)
         return []
-    # Kurze Häppchen (max. 4 Wörter), gut lesbar auf dem Handy.
+
+
+def subs_from_words(words: list[dict], offset: float = 0.0) -> list[dict]:
+    """Kurze Häppchen (max. 4 Wörter), gut lesbar auf dem Handy. Zeiten relativ zu offset."""
     out, chunk = [], []
     for w in words:
         chunk.append(w)
-        if len(chunk) == 4 or w.word.strip().endswith((".", "!", "?", ",")):
+        if len(chunk) == 4 or w["word"].endswith((".", "!", "?", ",")):
             out.append(chunk)
             chunk = []
     if chunk:
         out.append(chunk)
-    return [{"start": max(0.0, c[0].start), "end": max(0.0, c[-1].end),
-             "text": " ".join(x.word.strip() for x in c)} for c in out if c[-1].end > c[0].start]
+    return [{"start": max(0.0, c[0]["start"] - offset), "end": max(0.0, c[-1]["end"] - offset),
+             "text": " ".join(x["word"] for x in c)}
+            for c in out if c[-1]["end"] > c[0]["start"]]
+
+
+def auto_subtitles(src: Path, start: float, duration: float, model: str = "small") -> list[dict]:
+    return subs_from_words(whisper_words(src, start, duration, model), start)
 
 
 def teaser_window(peak: float | None, start: float, duration: float, length: float) -> tuple[float, float] | None:
@@ -221,14 +232,20 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
     src_info = probe(src)
     duration = max(0.1, min(duration, src_info["duration"] - start))
     subs = brief.get("subtitles") or []
+    words: list[dict] = list(brief.get("words") or [])
     if brief.get("subtitles_srt"):
         subs = parse_srt(base_dir / brief["subtitles_srt"])
-    if not subs and r.get("auto_subtitles"):
-        subs = auto_subtitles(src, start, duration, r.get("whisper_model", "small"))
+    if not subs and not words and r.get("auto_subtitles"):
+        words = whisper_words(src, start, duration, r.get("whisper_model", "small"))
+    if not subs and words:
+        subs = subs_from_words(words, start)
     if require_subtitles and not subs:
         raise ValueError("Untertitel fehlen (subtitles oder subtitles_srt im Brief).")
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    entry = allowlist.find(cfg, brief.get("streamer")) if brief.get("streamer") else None
+    if r.get("layout") == "split" and entry and entry.get("facecam"):
+        return _render_split_short(src, out_dir, brief, hook, start, duration, words, entry, r, rights)
     W, H = r["width"], r["height"]
     has_audio = src_info["audio_codec"] is not None
     teaser = None
@@ -246,7 +263,6 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
         cut = total + outro - float(r["max_seconds"])
         duration -= cut
         total -= cut
-    entry = allowlist.find(cfg, brief.get("streamer")) if brief.get("streamer") else None
     label = f"GTA 6 · {entry['name']}" if entry else "GTA 6"
     write_ass(out_dir / "subs.ass", hook, subs, total, cfg, outro, label)
     # Gesamtes Originalbild proportional einpassen: kein Center-Crop. Dadurch bleibt eine im
@@ -287,3 +303,31 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
     if (info["width"], info["height"], info["video_codec"]) != (W, H, "h264"):
         raise RuntimeError(f"Unerwartetes Videoformat: {info}")
     return {"video": info, "rights": rights, "file": "short.mp4"}
+
+
+def _render_split_short(src: Path, out_dir: Path, brief: dict, hook: str, start: float, duration: float,
+                        words: list[dict], entry: dict, r: dict, rights: dict) -> dict:
+    """Format v3: Facecam oben, Gameplay unten. Rohschnitt + Wortliste bleiben zum Nachbearbeiten liegen."""
+    from .split_render import render_split
+    import json
+    duration = min(duration, float(r.get("split_max_seconds", 60)))
+    outro = float(r.get("outro_seconds", 2.5) or 0)
+    if duration < 5 * outro:  # sehr kurze Clips ohne Abspann
+        outro = 0.0
+    duration = min(duration, float(r["max_seconds"]) - outro)
+    render_split(src, out_dir / "short.mp4", start=start, duration=duration, facecam=entry["facecam"],
+                 game_x=entry.get("game_x"), headline=brief.get("headline") or hook, words=words,
+                 bubbles=brief.get("bubbles") or [], punch=brief.get("punch") or [],
+                 outro_seconds=outro, font=r.get("headline_font", "Inter Display"),
+                 max_bitrate=r.get("max_video_bitrate") or "6M")
+    # Rohmaterial für die Feinarbeit (eigene Überschrift/Kommentare) – wird nie gepostet.
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-ss", str(start),
+                    "-t", str(float(r.get("max_seconds", 64))), "-i", str(src), "-c", "copy", "rohschnitt.mp4"],
+                   cwd=out_dir, check=False, env=media_env())
+    (out_dir / "words.json").write_text(json.dumps(
+        [{**w, "start": round(w["start"] - start, 3), "end": round(w["end"] - start, 3)} for w in words
+         if w["start"] >= start], ensure_ascii=False), encoding="utf-8")
+    info = probe(out_dir / "short.mp4")
+    if (info["width"], info["height"], info["video_codec"]) != (1080, 1920, "h264"):
+        raise RuntimeError(f"Unerwartetes Videoformat: {info}")
+    return {"video": info, "rights": rights, "file": "short.mp4", "layout": "split"}

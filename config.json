@@ -6,6 +6,9 @@
     "streamers": [
       {
         "twitch_login": "montanablack88",
+        "tiktok_handle": "@montanablack",
+        "facecam": {"x": 1200, "y": 720, "w": 520, "h": 360},
+        "game_x": 203,
         "name": "MontanaBlack",
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
@@ -21,6 +24,7 @@
       },
       {
         "twitch_login": "eligella",
+        "tiktok_handle": "@eligella",
         "name": "Eligella",
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
@@ -36,6 +40,7 @@
       },
       {
         "twitch_login": "xrohat",
+        "tiktok_handle": "@xrohat",
         "name": "Rohat",
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
@@ -69,6 +74,7 @@
       },
       {
         "twitch_login": "trymacs",
+        "tiktok_handle": "@trymacs",
         "name": "Trymacs",
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
@@ -131,7 +137,10 @@
     "auto_subtitles": true,
     "whisper_model": "small",
     "watermark": "",
-    "outro_seconds": 2.0,
+    "outro_seconds": 2.5,
+    "layout": "split",
+    "split_max_seconds": 60,
+    "_hinweis_layout": "Format v3 (Enis 2026-11-23): Facecam oben (facecam-Box je Streamer), Gameplay unten, weiße Textbox auf der Naht, Wort-für-Wort-Untertitel, Supercar-Abspann. Ohne facecam-Box im Streamer-Eintrag: altes Layout + manuelle Prüfung.",
     "headline_font": "Inter Display",
     "_hinweis_laenge": "Enis 2026-11-23: ganzer Clip (Twitch max. 60 s) + Vorspann + Abspann, nichts abschneiden."
   },
