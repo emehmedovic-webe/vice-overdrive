@@ -297,7 +297,10 @@ class RadarClipTests(unittest.TestCase):
                 urls.append(url)
                 return Path(shutil.copyfile(source, stage / "source.mp4"))
 
-            with patch("urllib.request.urlopen", side_effect=AssertionError("Kein Netzwerk im Test")):
+            # Offline gibt es kein Whisper; Untertitel sind für Radar-Clips Pflicht, also hier vorgeben.
+            fake_subs = [{"start": 0.0, "end": 1.0, "text": "Testuntertitel"}]
+            with patch("urllib.request.urlopen", side_effect=AssertionError("Kein Netzwerk im Test")), \
+                    patch("vo.render.auto_subtitles", return_value=fake_subs):
                 result = prepare_clips(report, cfg, root, download=fake_download)
                 self.assertEqual(urls, [self._twitch()["url"], self._youtube()["url"]])
                 self.assertEqual(result["rendered"], ["twitch-EpicClip", "youtube-AbCd0123_-x"])
@@ -527,6 +530,38 @@ class AutopilotTests(unittest.TestCase):
                                radar=lambda *a: {"top": items, "gta_categories": GAMES}, render=render)
             self.assertEqual(again, [])
 
+    def test_export_lists_held_streamers_and_risky_titles(self):
+        from vo.export import run_export
+        cfg = copy.deepcopy(CFG)
+        # Wie in der echten config.json: nur ein mündlicher Vermerk, kein Link.
+        next(e for e in cfg["clip_allowlist"]["streamers"]
+             if e["twitch_login"] == "montanablack88")["proof"] = "mündlich im Stream angesagt"
+        trymacs = {**self._item("t-1", video="v9"), "streamer_login": "trymacs",
+                   "url": "https://clips.twitch.tv/t-1", "title": "GTA 6 Leak Map", "game_id": "1234567"}
+        items = [self._item("race-a", video="v1"), trymacs]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "autopilot"
+            write_json(root / "state" / "autopilot.json", {"last_attempt": None, "clips": {}})
+            rendered = []
+            rows = run_export(cfg, root, Path(tmp) / "export",
+                              radar=lambda *a: {"top": items, "gta_categories": GAMES},
+                              render=lambda *a, **k: rendered.append(a) or {"rendered": []})
+            self.assertEqual((rows, rendered), ([], []))
+            notes = (Path(tmp) / "export" / "CAPTIONS.md").read_text(encoding="utf-8")
+            self.assertIn("Zurückgehalten", notes)
+            self.assertIn("MontanaBlack** gesperrt: kein Link", notes)
+            self.assertIn("Risiko-Wort „leak“", notes)
+
+    def test_permission_proof_needs_real_link(self):
+        from vo import allowlist
+        for proof, ok in [("mündlich bestätigt", False), ("https://", False), ("https://x", False),
+                          ("http://twitch.tv/x", False), (None, False),
+                          ("Clipper-Regeln: https://www.twitch.tv/montanablack88/about", True)]:
+            with self.subTest(proof=proof):
+                self.assertEqual(allowlist.has_proof({"proof": proof}), ok)
+        self.assertIn("kein Link", allowlist.proof_problem({"proof": "mündlich"}))
+        self.assertIsNone(allowlist.proof_problem({"proof": "https://twitch.tv/x"}))
+
     def test_teaser_only_when_peak_is_late(self):
         from vo.render import teaser_window
         self.assertIsNone(teaser_window(None, 0, 30, 1.5))
@@ -565,7 +600,10 @@ class AutopilotTests(unittest.TestCase):
         bad = ["Text.\n\n#GTA6\nhttps://twitch.tv/x", "Text 🎥 Clip von xQc.\n\n#GTA6",
                "Text. Was hättet ihr gemacht?\n\n#GTA6", "Gleich. Gleich.\n\n#GTA6",
                "Text.\n\n#a #b #c #d #e #f", "Text.\n\n#GTA6\n\nDrei Alternativen #GTAVI",
-               "Passt gut zum Clip.\n\n#GTA6", "Nur Text ohne Hashtags"]
+               "Passt gut zum Clip.\n\n#GTA6", "Nur Text ohne Hashtags",
+               "Exklusiver GTA 6 Leak von Monte.\n\n#gta6 #fyp #fy #viral",
+               "Monte fährt Auto. Folgt für Teil 2.\n\n#gta6 #fyp #fy #viral",
+               "Monte fährt Auto. Like wenn du lachen musstest.\n\n#gta6 #fyp #fy #viral"]
         for caption in bad:
             with self.subTest(caption=caption):
                 self.assertTrue(tiktok_caption_problems(caption))

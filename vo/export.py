@@ -10,6 +10,7 @@ import re
 import shutil
 from pathlib import Path
 
+from . import allowlist
 from .autopilot import _same_moment, _source_ids, atomic_json, load_state, lock
 from .clip_game import GAME_NAMES, clip_game
 from .common import iso, now_utc, read_json
@@ -63,6 +64,9 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
     allowed = gfilter.get("games", GAME_NAMES)
     blocked = [w.casefold() for w in gfilter.get("title_blocklist", [])]
     exported: list[dict] = []
+    # Zurückgehaltene Clips mit Klartext-Grund, damit nichts still verschwindet.
+    held: list[dict] = []
+    locked_streamers: dict[str, str] = {}
     with lock(root / "state" / "run.lock"):
         state = load_state(state_path)
         old = state["clips"]
@@ -74,13 +78,24 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
             login = str(clip.get("streamer_login") or "").casefold()
             if per_streamer.get(login, 0) >= MAX_PER_STREAMER:
                 continue
+            title = clip.get("title", "")
             try:
                 sid, _url, streamer = source_for(clip, cfg)
-            except ClipError:
+            except ClipError as exc:
+                entry = allowlist.find(cfg, login) if login else None
+                reason = allowlist.proof_problem(entry) or str(exc)
+                if entry and reason != str(exc):
+                    locked_streamers.setdefault(entry.get("name") or login, reason)
+                else:
+                    held.append({"streamer": login, "title": title, "source": clip.get("url", ""), "reason": reason})
                 continue
             game = clip_game(clip, report.get("gta_categories", {}))
-            title = clip.get("title", "")
-            if game not in allowed or any(w in title.casefold() for w in blocked):
+            if game not in allowed:
+                continue
+            hit = next((w for w in blocked if w in title.casefold()), None)
+            if hit:
+                held.append({"streamer": streamer, "title": title, "source": clip.get("url", ""),
+                             "reason": f"Titel enthält Risiko-Wort „{hit}“ (title_blocklist)"})
                 continue
             previous = old.get(sid, {})
             if previous.get("tiktok_status") in SKIP_TIKTOK:
@@ -91,10 +106,16 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
             try:
                 result = render({"top": [clip], "gta_categories": report.get("gta_categories", {})},
                                 cfg, work, limit=1, handoff=False)
-            except (OSError, RuntimeError, ValueError, ClipError):
+            except (OSError, RuntimeError, ValueError, ClipError) as exc:
+                held.append({"streamer": streamer, "title": title, "source": clip.get("url", ""),
+                             "reason": f"Schnitt fehlgeschlagen: {exc}"})
                 continue
             src = work / "shorts" / sid
             if sid not in result.get("rendered", []) or not (src / "short.mp4").is_file():
+                why = next((f.get("reason") for f in result.get("failed", []) if f.get("short_id") == sid),
+                           "kein Video erzeugt")
+                held.append({"streamer": streamer, "title": title, "source": clip.get("url", ""),
+                             "reason": f"Schnitt fehlgeschlagen: {why}"})
                 continue
             check = previous.get("tiktok_status") == "unconfirmed"
             slug = re.sub(r"[^a-z0-9]+", "-", title.casefold()).strip("-")[:40] or "clip"
@@ -102,7 +123,9 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15,
             folder = out / name
             try:
                 caption = export_caption(src)
-            except ValueError:
+            except ValueError as exc:
+                held.append({"streamer": streamer, "title": title, "source": clip.get("url", ""),
+                             "reason": f"Caption-Prüfung: {exc}"})
                 continue
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src / "short.mp4", folder / "video.mp4")
@@ -143,6 +166,14 @@ keine Nutzungsrechte und garantiert keine TikTok-Empfehlung.
     for e in exported:
         notes += [f"## {e['file']}" + (" ⚠️ evtl. schon in der TikTok-Inbox, erst prüfen" if e["check"] else ""),
                   f"Quelle: {e['source']}", "", "```", e["caption"], "```", ""]
+    if locked_streamers or held:
+        notes += ["# Zurückgehalten (NICHT exportiert)", "",
+                  "Diese Clips/Streamer hat die Prüfung gestoppt. Nichts davon posten, bis der Grund behoben ist.", ""]
+        for name, reason in sorted(locked_streamers.items()):
+            notes.append(f"- **{name}** gesperrt: {reason}")
+        for h in held:
+            notes.append(f"- {h['streamer']} – „{h['title']}“: {h['reason']} (intern: {h['source']})")
+        notes.append("")
     (out / "CAPTIONS.md").write_text("\n".join(notes), encoding="utf-8")
     shutil.rmtree(work, ignore_errors=True)
     return exported
