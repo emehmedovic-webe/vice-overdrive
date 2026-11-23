@@ -41,6 +41,8 @@
       {
         "twitch_login": "xrohat",
         "tiktok_handle": "@xrohat",
+        "facecam": {"x": 1404, "y": 112, "w": 516, "h": 294},
+        "game_x": 300,
         "name": "Rohat",
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
@@ -75,6 +77,8 @@
       {
         "twitch_login": "trymacs",
         "tiktok_handle": "@trymacs",
+        "facecam": {"x": 1437, "y": 600, "w": 483, "h": 480},
+        "game_x": 300,
         "name": "Trymacs",
         "active": true,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
