@@ -56,22 +56,32 @@ def _esc(text: str) -> str:
 
 
 def write_ass(path: Path, hook: str, subs: list[dict], duration: float, cfg: dict,
-              outro: float = 0.0) -> None:
+              outro: float = 0.0, label: str = "") -> None:
     r = cfg["render"]
     font = r["font"]
+    head_font = r.get("headline_font", font)
+    W, H = r["width"], r["height"]
+    # Freie Fläche über dem Gameplay (Querformat füllt nur die Breite): Überschrift mittig dort.
+    fg_h = min(int(H * float(r.get("fg_height_ratio", 0.6))), int(W * 9 / 16))
+    top_free = (H - fg_h) // 2
+    label_y = max(200, top_free // 2 - 110)
+    head_y = label_y + 50  # Oberkante der Überschrift; mehrzeilig wächst sie nach unten
     # Ränder so gewählt, dass Texte außerhalb der TikTok-/Shorts-Bedienelemente liegen.
     header = f"""[Script Info]
 ScriptType: v4.00+
-PlayResX: {r['width']}
-PlayResY: {r['height']}
+PlayResX: {W}
+PlayResY: {H}
 WrapStyle: 0
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Hook,{font},74,&H00FFFFFF,&H00FFFFFF,&H00A01EFF,&H00A01EFF,1,0,0,0,100,100,0,0,3,18,0,8,90,90,230,1
-Style: Mark,{font},34,&H50FFFFFF,&H50FFFFFF,&H80000000,&H00000000,1,0,0,0,100,100,0,0,1,2,0,9,40,40,{int(r['height'] * (1 - float(r.get('fg_height_ratio', 0.6))) / 2) + 24},1
-Style: Outro,{font},96,&H00FFFFFF,&H00FFFFFF,&H00A01EFF,&H00000000,1,0,0,0,100,100,2,0,1,6,0,5,60,60,0,1
+Style: Hook,{head_font},112,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,1,0,0,0,100,100,1,0,1,9,6,5,70,70,0,1
+Style: Label,{head_font},40,&H00FFFFFF,&H00FFFFFF,&H00A01EFF,&H00A01EFF,1,0,0,0,100,100,4,0,3,14,0,5,90,90,0,1
+Style: Mark,{font},34,&H50FFFFFF,&H50FFFFFF,&H80000000,&H00000000,1,0,0,0,100,100,0,0,1,2,0,9,40,40,{top_free + 24},1
+Style: Box,{font},10,&H00000000,&H00000000,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
+Style: Outro,{head_font},120,&H00FFFFFF,&H00FFFFFF,&H00A01EFF,&H00A01EFF,1,0,0,0,100,100,6,0,1,4,0,5,60,60,0,1
+Style: OutroSub,{head_font},50,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,8,0,1,0,0,5,60,60,0,1
 Style: Sub,{font},64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,1,0,0,0,100,100,0,0,1,6,2,2,110,170,560,1
 
 [Events]
@@ -79,12 +89,27 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     # Hook bleibt die ganze Zeit oben stehen (TikTok-Zuschauer springen sonst nach 2 Sekunden ab).
     hook_end = duration if r.get("hook_whole_clip", True) else min(3.0, duration)
-    lines = [f"Dialogue: 1,{_ts(0)},{_ts(hook_end)},Hook,,0,0,0,,{_esc(hook)}"]
+    cx = W // 2
+    pop = "{\\fscx70\\fscy70\\t(0,220,\\fscx106\\fscy106)\\t(220,340,\\fscx100\\fscy100)}"
+    lines = [f"Dialogue: 2,{_ts(0)},{_ts(hook_end)},Hook,,0,0,0,,{{\\an8\\pos({cx},{head_y})}}{pop}{_esc(hook.upper())}"]
+    if label:
+        lines.append(f"Dialogue: 2,{_ts(0)},{_ts(hook_end)},Label,,0,0,0,,{{\\pos({cx},{label_y})}}{_esc(label.upper())}")
     if r.get("watermark"):
         lines.append(f"Dialogue: 1,{_ts(0)},{_ts(duration)},Mark,,0,0,0,,{_esc(r['watermark'])}")
     if outro > 0:
-        lines.append(f"Dialogue: 2,{_ts(duration)},{_ts(duration + outro)},Outro,,0,0,0,,"
-                     "VICE OVERDRIVE\\N{\\fs52}Folgen für mehr GTA 6")
+        t0, t1 = _ts(duration), _ts(duration + outro)
+        ms = int(outro * 1000)
+        # Abspann: letztes Bild bleibt stehen, wird abgedunkelt; Logo zoomt rein, Zeile darunter blendet ein.
+        lines += [
+            f"Dialogue: 3,{t0},{t1},Box,,0,0,0,,{{\\pos(0,0)\\1c&H210D15&\\alpha&HFF&\\t(0,250,\\alpha&H30&)\\p1}}"
+            f"m 0 0 l {W} 0 {W} {H} 0 {H}{{\\p0}}",
+            f"Dialogue: 4,{t0},{t1},Box,,0,0,0,,{{\\pos(0,{H // 2 - 6})\\1c&HFFE600&\\clip(0,0,0,{H})"
+            f"\\t(150,500,\\clip(0,0,{W},{H}))\\p1}}m 140 0 l {W - 140} 0 {W - 140} 12 140 12{{\\p0}}",
+            f"Dialogue: 5,{t0},{t1},Outro,,0,0,0,,{{\\pos({cx},{H // 2 - 110})\\blur3\\fscx40\\fscy40"
+            f"\\t(0,260,\\fscx112\\fscy112)\\t(260,420,\\fscx100\\fscy100)}}VICE\\NOVERDRIVE",
+            f"Dialogue: 5,{t0},{t1},OutroSub,,0,0,0,,{{\\pos({cx},{H // 2 + 90})\\alpha&HFF&"
+            f"\\t(350,{min(ms, 700)},\\alpha&H00&)}}FOLGEN FÜR MEHR GTA 6",
+        ]
     for s in subs:
         lines.append(f"Dialogue: 0,{_ts(s['start'])},{_ts(min(s['end'], duration))},Sub,,0,0,0,,{_esc(s['text'])}")
     path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
@@ -221,7 +246,9 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
         cut = total + outro - float(r["max_seconds"])
         duration -= cut
         total -= cut
-    write_ass(out_dir / "subs.ass", hook, subs, total, cfg, outro)
+    entry = allowlist.find(cfg, brief.get("streamer")) if brief.get("streamer") else None
+    label = f"GTA 6 · {entry['name']}" if entry else "GTA 6"
+    write_ass(out_dir / "subs.ass", hook, subs, total, cfg, outro, label)
     # Gesamtes Originalbild proportional einpassen: kein Center-Crop. Dadurch bleibt eine im
     # Quellbild vorhandene Facecam auch bei Querformat-Clips im fertigen 9:16-Short sichtbar.
     # Kein schwarzes Pad: der unscharfe Hintergrund füllt die freien Flächen oben/unten.
@@ -236,7 +263,7 @@ def render_short(brief: dict, hook: str, out_dir: Path, cfg: dict, base_dir: Pat
         f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=24:2,eq=brightness=-0.12[bgb];"
         f"[fg]scale={W}:{fg_h}:force_original_aspect_ratio=decrease[fgs];"
         f"[bgb][fgs]overlay=(W-w)/2:(H-h)/2"
-        + (f",tpad=stop_duration={outro}:stop_mode=add:color={r.get('background', 'black')}" if outro > 0 else "")
+        + (f",tpad=stop_duration={outro}:stop_mode=clone" if outro > 0 else "")
         + ",ass=subs.ass,format=yuv420p[v]"
     )
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y"]

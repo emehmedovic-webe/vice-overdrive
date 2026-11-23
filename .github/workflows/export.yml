@@ -56,7 +56,7 @@ jobs:
           key: whisper-small-v1
       - name: Werkzeuge installieren (nur im Runner)
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core zip
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core fonts-inter zip
           python3 -m venv "${RUNNER_TEMP}/vice-overdrive-venv"
           "${RUNNER_TEMP}/vice-overdrive-venv/bin/python" -m pip install -q 'yt-dlp[default]==2026.10.26' 'faster-whisper==1.2.1'
       - name: Export schneiden

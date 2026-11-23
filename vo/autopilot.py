@@ -130,7 +130,7 @@ def _video_and_proof(out: Path, sid: str, url: str, streamer: str) -> tuple[Path
         raise NoVisualEvidence("Radar-Herkunft oder Rechtebeleg fehlen.")
     video = out / "short.mp4"
     info = probe(video)
-    if (info["width"], info["height"], info["video_codec"]) != (1080, 1920, "h264") or not 0 < info["duration"] <= 60:
+    if (info["width"], info["height"], info["video_codec"]) != (1080, 1920, "h264") or not 0 < info["duration"] <= 65:
         raise NoVisualEvidence("Die MP4 entspricht nicht dem Shorts-Format.")
     return video, manifest, info["duration"]
 

@@ -17,7 +17,7 @@ jobs:
         # apt-get update hing hier zweimal 15 Minuten ohne Ausgabe: mit Zeitlimit, Paketlisten notfalls vom Image.
         run: |
           sudo timeout 180 apt-get update -qq -o Acquire::Retries=3 -o Acquire::http::Timeout=20 || echo "apt-get update übersprungen"
-          sudo timeout 600 apt-get install -y -qq -o Acquire::Retries=3 ffmpeg fonts-dejavu-core
+          sudo timeout 600 apt-get install -y -qq -o Acquire::Retries=3 ffmpeg fonts-dejavu-core fonts-inter
       - name: Original-Demo (VICE-OVERDRIVE-0EUR.py)
         run: python3 VICE-OVERDRIVE-0EUR.py --out vo-demo
       - name: Unit-Tests (offline, ohne Secrets)
