@@ -33,8 +33,17 @@ def short_url(entry: dict) -> str:
 
 
 def has_proof(entry: dict, field: str = "proof") -> bool:
+    """Ein Freigabebeleg muss nachprüfbar sein, nicht nur ein Freitext-Vermerk.
+
+    Akzeptiert eine HTTPS-Quelle (z. B. VOD/Regeln/Clipper-Programm). Aussagen wie
+    'mündlich bestätigt' bleiben als Notiz erhalten, schalten den Export aber nicht frei.
+    """
+    import re
+
     proof = entry.get(field)
-    return isinstance(proof, str) and bool(proof.strip())
+    if not isinstance(proof, str):
+        return False
+    return bool(re.search(r"https://[^\\s]+", proof.strip(), re.IGNORECASE))
 
 
 def credit_line(entry: dict) -> str:
