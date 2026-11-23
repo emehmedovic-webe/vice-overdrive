@@ -1101,6 +1101,14 @@ class ActionsUploadGuardTest(unittest.TestCase):
 
 
 class SplitFormatTest(unittest.TestCase):
+    def test_vod_peaks_are_loud_and_spread(self):
+        from vo.vod_mine import pick_peaks
+        curve = [-50.0] * 2000
+        for t in (700, 705, 1500):
+            curve[t] = -5.0
+        a, b = pick_peaks(curve, 2, skip_start=600, min_gap=240, window=4)
+        self.assertTrue(698 <= a <= 710 and 1496 <= b <= 1504, (a, b))
+
     def test_word_events_use_exact_words_and_skip_punch(self):
         from vo.split_render import word_events
         words = [{"start": 10.0, "end": 10.3, "word": "„Gib"}, {"start": 10.4, "end": 10.8, "word": "Cash!"},
