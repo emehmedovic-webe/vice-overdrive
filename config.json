@@ -131,7 +131,8 @@
     "auto_subtitles": true,
     "whisper_model": "small",
     "watermark": "",
-    "outro_seconds": 1.2
+    "outro_seconds": 2.0,
+    "headline_font": "Inter Display"
   },
   "texts": {
     "base_hashtags_youtube": [
