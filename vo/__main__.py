@@ -101,6 +101,9 @@ def main(argv=None) -> None:
     ex = sub.add_parser("export", help="Übrige GTA-Clips für manuelles TikTok-Posten exportieren")
     ex.add_argument("--out", type=Path, default=Path("tiktok-export"))
     ex.add_argument("--limit", type=int, default=15)
+    ex.add_argument("--per-streamer", type=int, default=2, help="Höchstens so viele Clips pro Streamer")
+    ex.add_argument("--all-recent", action="store_true",
+                    help="Alle GTA-Clips der letzten 7 Tage berücksichtigen, nicht nur die mit neuem Aufrufzuwachs")
     pb = sub.add_parser("publish"); pb.add_argument("target", choices=["youtube", "tiktok"])
     pb.add_argument("--live", action="store_true", help="Wirklich veröffentlichen (nur freigegebene)")
     st = sub.add_parser("selftest"); st.add_argument("--out", default="selftest-out")
@@ -142,8 +145,14 @@ def main(argv=None) -> None:
             print("Keine Shorts vorhanden.")
     elif a.cmd == "export":
         from .export import run_export
-        rows = run_export(cfg, data.resolve() / "autopilot", a.out, limit=max(1, min(a.limit, 40)))
+        if a.all_recent:
+            cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 200}}
+        rows = run_export(cfg, data.resolve() / "autopilot", a.out, limit=max(1, min(a.limit, 40)),
+                          per_streamer=max(1, min(a.per_streamer, 5)))
         print(f"Export: {len(rows)} Clips in {a.out}")
+        notes = a.out / "CAPTIONS.md"
+        if notes.is_file() and "Zurückgehalten" in notes.read_text(encoding="utf-8"):
+            print(notes.read_text(encoding="utf-8").split("# Zurückgehalten", 1)[1])
         return 0
     elif a.cmd == "youtube-check":
         from .youtube_check import check

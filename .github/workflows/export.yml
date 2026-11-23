@@ -13,6 +13,14 @@ on:
         description: "Höchstens so viele Clips"
         type: number
         default: 15
+      per_streamer:
+        description: "Höchstens so viele Clips pro Streamer"
+        type: number
+        default: 2
+      all_recent:
+        description: "Alle GTA-Clips der letzten 7 Tage (nicht nur neuer Aufrufzuwachs)"
+        type: boolean
+        default: false
 concurrency:
   group: vice-overdrive-autopilot
   cancel-in-progress: false
@@ -57,9 +65,11 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
           LIMIT: ${{ inputs.limit || 5 }}
+          PER_STREAMER: ${{ inputs.per_streamer || 2 }}
+          ALL_RECENT: ${{ inputs.all_recent && '--all-recent' || '' }}
         run: |
           export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
-          python3 -m vo export --out tiktok-export --limit "${LIMIT:-15}"
+          python3 -m vo export --out tiktok-export --limit "${LIMIT:-15}" --per-streamer "${PER_STREAMER:-2}" ${ALL_RECENT}
       - name: Zustand sichern
         if: always()
         uses: actions/cache/save@v4
