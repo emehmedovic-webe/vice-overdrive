@@ -233,5 +233,17 @@
     "mode": "inbox",
     "privacy_level": "SELF_ONLY",
     "_hinweis": "mode inbox = Entwurf in der TikTok-App selbst posten; direct = Direct Post (ungeprüfte App: nur SELF_ONLY und nur privates Konto)"
+  },
+  "sourcing": {
+    "_hinweis": "Enis 2026-11-25: Reihenfolge der Suche. Es gibt immer etwas Brauchbares, also immer liefern statt 'nichts gefunden' zu melden (Inhaltsfilter bleibt: keine Nacktheit/Sexuelles).",
+    "order": [
+      "vods",
+      "twitch_clips"
+    ],
+    "priority": [
+      "gta6",
+      "other_funny"
+    ],
+    "_priority_hinweis": "Prio 1: GTA-6-Momente. Prio 2: andere lustige Momente dieser Streamer (auch Nicht-GTA) als Ergänzung."
   }
 }
