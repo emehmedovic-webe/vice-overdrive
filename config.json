@@ -15,10 +15,10 @@
         },
         "game_x": 203,
         "name": "MontanaBlack",
-        "active": true,
+        "active": false,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe).",
+        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe). 2026-11-25: Enis will keine Monte-Clips mehr (active=false).",
         "youtube_handle": "@MontanaBlack",
         "creator_confirmation": {
           "type": "verbal_stream_permission",

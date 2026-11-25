@@ -90,7 +90,7 @@ class RadarTests(unittest.TestCase):
     def test_live_allowlist_is_german_only(self):
         from vo import allowlist
         active = {s["twitch_login"] for s in allowlist.streamers(GTA6_ONLY)}
-        self.assertEqual(active, {"montanablack88", "eligella", "xrohat", "trymacs", "sidneyeweka", "niklaswilson"})
+        self.assertEqual(active, {"eligella", "xrohat", "trymacs", "sidneyeweka", "niklaswilson"})
 
     def test_dedupe_merges_same_vod_window_and_same_id(self):
         groups = dedupe([clip("x", "1", 10), clip("y", "1", 20, offset=115), clip("z", "1", 5, offset=500, title="anders"),
