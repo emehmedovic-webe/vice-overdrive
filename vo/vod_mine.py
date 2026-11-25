@@ -74,8 +74,12 @@ def mine(cfg: dict, data: Path, out: Path, *, per_vod: int = 4, vods_per_streame
         if not entry or allowlist.proof_problem(entry):
             print(f"{login}: keine Freigabe – übersprungen", flush=True)
             continue
-        vods = [v for v in client.get("videos", {"user_id": user["id"], "type": "archive", "first": 10})
-                if GTA_TITLE.search(v.get("title", ""))][:vods_per_streamer]
+        archive = client.get("videos", {"user_id": user["id"], "type": "archive", "first": 10})
+        # Prio 1 GTA-Streams, Prio 2 (Enis 2026-11-25) die neuesten anderen Streams, damit immer etwas kommt.
+        vods = [v for v in archive if GTA_TITLE.search(v.get("title", ""))][:vods_per_streamer]
+        if not vods:
+            vods = archive[:vods_per_streamer]
+            print(f"{login}: kein GTA-Stream, nehme die neuesten {len(vods)} Streams", flush=True)
         for vod in vods:
             vid, url = vod["id"], vod["url"]
             done = state["mined"].setdefault(vid, [])
