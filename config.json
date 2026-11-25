@@ -120,7 +120,14 @@
           "confirmed_by": "Enis",
           "date": "2026-11-25",
           "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
-        }
+        },
+        "facecam": {
+          "x": 1385,
+          "y": 440,
+          "w": 525,
+          "h": 290
+        },
+        "game_x": 300
       },
       {
         "twitch_login": "niklaswilson",
@@ -135,7 +142,14 @@
           "confirmed_by": "Enis",
           "date": "2026-11-25",
           "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
-        }
+        },
+        "facecam": {
+          "x": 1355,
+          "y": 700,
+          "w": 560,
+          "h": 380
+        },
+        "game_x": 300
       }
     ]
   },
