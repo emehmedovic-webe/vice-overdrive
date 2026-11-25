@@ -157,7 +157,7 @@ def main(argv=None) -> None:
         if a.all_recent:
             cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 200}}
         if a.all_time:
-            cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 400, "all_time": True}}
+            cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 400, "all_time": True, "all_time_days": 365}}
         rows = run_export(cfg, data.resolve() / "autopilot", a.out, limit=max(1, min(a.limit, 40)),
                           per_streamer=max(1, min(a.per_streamer, 5)),
                           redo=frozenset(x.strip() for x in a.redo.split(",") if x.strip()))

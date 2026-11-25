@@ -156,10 +156,12 @@
   "gta_filter": {
     "enabled": true,
     "categories": [
-      "Grand Theft Auto VI"
+      "Grand Theft Auto VI",
+      "Grand Theft Auto V"
     ],
     "games": [
-      "gta6"
+      "gta6",
+      "gta5"
     ],
     "title_blocklist": [
       "18+",
@@ -176,7 +178,7 @@
       "adresse",
       "handynummer"
     ],
-    "_hinweis": "Nur GTA VI (Entscheidung Enis 2026-11-18). GTA V/RP wieder zulassen: Kategorie \"Grand Theft Auto V\" und \"gta5\" ergänzen."
+    "_hinweis": "GTA VI und GTA V/RP (Enis 2026-11-25: auch ältere GTA-Clips erlaubt)."
   },
   "language": "de",
   "radar": {

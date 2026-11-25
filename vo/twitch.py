@@ -165,7 +165,7 @@ def run_radar(cfg: dict, state_path: Path, out_dir: Path, client: Helix | None =
         all_time = bool(rcfg.get("all_time"))
         # all_time: 60 Tage, 100 meistgesehene Clips pro Kanal (Twitch kann Kanal + Spiel nicht kombinieren).
         for clip in client.clips(broadcaster_id=user["id"],
-                                 started_at=iso(now - timedelta(days=60)) if all_time else started_at,
+                                 started_at=iso(now - timedelta(days=int(rcfg.get("all_time_days", 60)))) if all_time else started_at,
                                  ended_at=ended_at, first=100 if all_time else rcfg["max_clips_per_source"]):
             if clip.get("broadcaster_id") != user["id"]:
                 continue
