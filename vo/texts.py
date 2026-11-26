@@ -231,7 +231,8 @@ def tiktok_caption_problems(caption: str) -> list[str]:
     tags = [t for t in line if not t.startswith("@")]
     if not desc or "#" in desc or "@" in desc:
         problems.append("Beschreibung fehlt oder enthält Hashtags/Handles.")
-    if len(handles) != 1 or not line[0].startswith("@") or not re.fullmatch(r"@[\w.]+", handles[0]):
+    # Enis 2026-11-26: @streamer optional (Captions jetzt ohne @); wenn vorhanden, genau einer am Anfang.
+    if handles and (len(handles) != 1 or not line[0].startswith("@") or not re.fullmatch(r"@[\w.]+", handles[0])):
         problems.append("Zeile muss mit genau einem @streamer beginnen.")
     if (not TIKTOK_HASHTAG_MIN <= len(tags) <= TIKTOK_HASHTAG_MAX
             or not all(re.fullmatch(r"#\w+", t) for t in tags)):

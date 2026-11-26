@@ -631,12 +631,13 @@ class AutopilotTests(unittest.TestCase):
                "Exklusiver GTA 6 Leak von Monte.\n\n@montanablack #gta6 #montanablack",
                "Monte fährt Auto. Folgt für Teil 2.\n\n@montanablack #gta6 #montanablack",
                "Monte fährt Auto. Like wenn du lachen musstest.\n\n@montanablack #gta6 #montanablack",
-               "Monte fährt Auto.\n\n#gta6 #montanablack",
                "Monte fährt Auto.\n\n@montanablack #gta6",
                "Monte fährt Auto.\n\n@montanablack #gta6 #montanablack #fyp",
                "Monte fährt Auto.\n\n#gta6 @montanablack #montanablack"]
         self.assertEqual(tiktok_caption_problems(
             "Monte fährt Auto.\n\n@montanablack #gta6 #montanablack #elektroschocker"), [])
+        # Enis 2026-11-26: Captions ohne @streamer sind erlaubt.
+        self.assertEqual(tiktok_caption_problems("Monte fährt Auto.\n\n#gta6 #montanablack"), [])
         for caption in bad:
             with self.subTest(caption=caption):
                 self.assertTrue(tiktok_caption_problems(caption))
