@@ -37,11 +37,11 @@ WrapStyle: 0
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Head,{font},58,&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,1,0,0,0,100,100,0,0,3,20,0,5,60,60,0,1
-Style: Word,{font},120,&H0000E6FF,&H0000E6FF,&H00000000,&H96000000,1,0,0,0,100,100,2,0,1,10,6,5,40,40,0,1
+Style: Word,{font},92,&H0000E6FF,&H0000E6FF,&H00000000,&H96000000,1,0,0,0,100,100,2,0,1,10,6,5,40,40,0,1
 Style: Bubble,{font},54,&H00180A20,&H00180A20,&H00FFFFFF,&H00FFFFFF,1,0,0,0,100,100,0,0,3,20,0,5,80,80,0,1
 Style: Punch,{font},140,&H0000E6FF,&H0000E6FF,&H00000000,&H96000000,1,0,0,0,100,100,2,0,1,12,8,5,40,40,0,1
 Style: Big,{font},96,&H00FFFFFF,&H00FFFFFF,&H00A01EFF,&H96000000,1,0,0,0,100,100,4,0,1,6,5,5,40,40,0,1
-Style: Hook,{font},74,&H00000000,&H00000000,&H0000E6FF,&H0000E6FF,1,0,0,0,100,100,0,0,3,24,0,5,60,60,0,1
+Style: Hook,{font},60,&H00000000,&H00000000,&H0000E6FF,&H0000E6FF,1,0,0,0,100,100,0,0,3,24,0,5,60,60,0,1
 Style: Small,{font},52,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,1,0,0,0,100,100,6,0,1,4,3,5,40,40,0,1
 
 [Events]
@@ -95,9 +95,10 @@ def write_body_ass(path: Path, *, headline: str, duration: float, words: list[di
     lines = [_HEADER.format(font=font)]
     if hook and hook.get("text"):
         # Hook in den ersten Sekunden (Enis 2026-11-26): groß, gelber Kasten, oben im Gameplay, ohne Animation.
-        lines.append(f"Dialogue: 5,{_ts(0)},{_ts(float(hook.get('seconds', 2.5)))},Hook,,0,0,0,,"
-                     f"{{\\pos(540,{head_y + 230})}}{_esc(wrap(hook['text'], 22))}")
-    lines.append(f"Dialogue: 2,{_ts(0)},{_ts(duration)},Head,,0,0,0,,{{\\pos(540,{head_y})}}{_esc(wrap(headline))}")
+        lines.append(f"Dialogue: 5,{_ts(0)},{_ts(min(2.0, float(hook.get('seconds', 2.0))))},Hook,,0,0,0,,"
+                     f"{{\\pos(540,{head_y if hook.get('pos') == 'divider' else head_y + 230})}}{_esc(wrap(hook['text'], 22))}")
+    if headline.strip():
+        lines.append(f"Dialogue: 2,{_ts(0)},{_ts(duration)},Head,,0,0,0,,{{\\pos(540,{head_y})}}{_esc(wrap(headline))}")
     for b in bubbles:
         lines.append(f"Dialogue: 3,{_ts(b['start'])},{_ts(b['end'])},Bubble,,0,0,0,,"
                      f"{{\\pos(540,1700)}}{_esc(wrap(b['text'], 32))}")

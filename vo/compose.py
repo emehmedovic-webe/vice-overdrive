@@ -44,8 +44,9 @@ def compose(folder: Path, cfg: dict) -> Path:
     r = cfg["render"]
     out = render_split(folder / "_roh" / "source.mp4", folder / "video.mp4", start=start, duration=end - start,
                        facecam=facecam, game_x=edit.get("game_x", entry.get("game_x")), blur=edit.get("blur", []),
-                       headline=edit["headline"], words=load_words(folder / "_roh" / "words.json"),
-                       bubbles=edit.get("bubbles", []), punch=edit.get("punch", []),
+                       headline=edit["headline"], words=load_words(folder / "_roh" / "words.json") if edit.get("subtitles", True) else [],
+                       bubbles=[],  # Enis 2026-11-26: keine Text-Einblendungen mitten im Clip (verdecken zu viel)
+                        punch=edit.get("punch", []),
                        outro_seconds=float(r.get("outro_seconds", 2.5)),
                        font=r.get("headline_font", "Inter Display"), max_bitrate="3M",
                        layout=edit.get("layout", "split"), hook=edit.get("hook"))
