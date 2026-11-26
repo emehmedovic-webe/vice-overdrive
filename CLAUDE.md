@@ -27,3 +27,7 @@ The exact per-video restriction reasons were not opened in the screenshots and a
 Video format (creator decision 2026-11-23, after TikTok flagged reframed clips as "Nicht originale Inhalte"): facecam top, gameplay bottom, own headline box, word-by-word subtitles of the exact spoken words, own comments only where true, supercar outro. See `vo/split_render.py` and `python -m vo compose`.
 
 When making project changes, preserve existing work and inspect the current branch/status first. Do not overwrite parallel work.
+
+## Clip-Suche (Enis 2026-11-25)
+
+Zuerst VODs (`vod.yml`, letzte Streams mehrerer Tage), danach Twitch-Clips (`export.yml`). Prio 1 sind GTA-6-Momente, Prio 2 andere lustige Momente derselben Streamer (auch Nicht-GTA). Es gibt immer etwas Brauchbares: immer liefern statt „nichts gefunden“ zu melden. Der Inhaltsfilter (keine Nacktheit/Sexuelles) gilt weiter. Siehe `sourcing` in `config.json`.

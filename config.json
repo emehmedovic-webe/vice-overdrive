@@ -7,13 +7,18 @@
       {
         "twitch_login": "montanablack88",
         "tiktok_handle": "@montanablack",
-        "facecam": {"x": 1200, "y": 720, "w": 520, "h": 360},
+        "facecam": {
+          "x": 1200,
+          "y": 720,
+          "w": 520,
+          "h": 360
+        },
         "game_x": 203,
         "name": "MontanaBlack",
-        "active": true,
+        "active": false,
         "proof": "mündlich im Stream angesagt (Clipper-Programm), bestätigt von Enis am 2026-11-18",
         "required_tags": [],
-        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe).",
+        "notes": "Clipper-Programm laut Enis im Stream angesagt (ca. 100 € pro 1 Mio. Aufrufe). 2026-11-25: Enis will keine Monte-Clips mehr (active=false).",
         "youtube_handle": "@MontanaBlack",
         "creator_confirmation": {
           "type": "verbal_stream_permission",
@@ -41,7 +46,12 @@
       {
         "twitch_login": "xrohat",
         "tiktok_handle": "@xrohat",
-        "facecam": {"x": 1404, "y": 112, "w": 516, "h": 294},
+        "facecam": {
+          "x": 1404,
+          "y": 112,
+          "w": 516,
+          "h": 294
+        },
         "game_x": 300,
         "name": "Rohat",
         "active": true,
@@ -77,7 +87,12 @@
       {
         "twitch_login": "trymacs",
         "tiktok_handle": "@trymacs",
-        "facecam": {"x": 1430, "y": 560, "w": 490, "h": 520},
+        "facecam": {
+          "x": 1430,
+          "y": 560,
+          "w": 490,
+          "h": 520
+        },
         "game_x": 300,
         "name": "Trymacs",
         "active": true,
@@ -91,16 +106,62 @@
           "date": "2026-11-23",
           "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
         }
+      },
+      {
+        "twitch_login": "sidneyeweka",
+        "tiktok_handle": "@sidneyeweka",
+        "name": "Sidney",
+        "active": true,
+        "proof": "mündlich im Stream angesagt, bestätigt von Enis am 2026-11-25",
+        "required_tags": [],
+        "notes": "Von Enis am 2026-11-25 hinzugefügt (Clips erlaubt laut Enis).",
+        "creator_confirmation": {
+          "type": "verbal_stream_permission",
+          "confirmed_by": "Enis",
+          "date": "2026-11-25",
+          "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
+        },
+        "facecam": {
+          "x": 1385,
+          "y": 440,
+          "w": 525,
+          "h": 290
+        },
+        "game_x": 300
+      },
+      {
+        "twitch_login": "niklaswilson",
+        "tiktok_handle": "@niklaswilson",
+        "name": "Niklas Wilson",
+        "active": true,
+        "proof": "mündlich im Stream angesagt, bestätigt von Enis am 2026-11-25",
+        "required_tags": [],
+        "notes": "Von Enis am 2026-11-25 hinzugefügt (Clips erlaubt laut Enis).",
+        "creator_confirmation": {
+          "type": "verbal_stream_permission",
+          "confirmed_by": "Enis",
+          "date": "2026-11-25",
+          "note": "Streamer sagt im Stream öffentlich: Clips sind okay, solange nichts erfunden wird."
+        },
+        "facecam": {
+          "x": 1355,
+          "y": 700,
+          "w": 560,
+          "h": 380
+        },
+        "game_x": 300
       }
     ]
   },
   "gta_filter": {
     "enabled": true,
     "categories": [
-      "Grand Theft Auto VI"
+      "Grand Theft Auto VI",
+      "Grand Theft Auto V"
     ],
     "games": [
-      "gta6"
+      "gta6",
+      "gta5"
     ],
     "title_blocklist": [
       "18+",
@@ -117,7 +178,7 @@
       "adresse",
       "handynummer"
     ],
-    "_hinweis": "Nur GTA VI (Entscheidung Enis 2026-11-18). GTA V/RP wieder zulassen: Kategorie \"Grand Theft Auto V\" und \"gta5\" ergänzen."
+    "_hinweis": "GTA VI und GTA V/RP (Enis 2026-11-25: auch ältere GTA-Clips erlaubt)."
   },
   "language": "de",
   "radar": {
@@ -172,5 +233,17 @@
     "mode": "inbox",
     "privacy_level": "SELF_ONLY",
     "_hinweis": "mode inbox = Entwurf in der TikTok-App selbst posten; direct = Direct Post (ungeprüfte App: nur SELF_ONLY und nur privates Konto)"
+  },
+  "sourcing": {
+    "_hinweis": "Enis 2026-11-25: Reihenfolge der Suche. Es gibt immer etwas Brauchbares, also immer liefern statt 'nichts gefunden' zu melden (Inhaltsfilter bleibt: keine Nacktheit/Sexuelles).",
+    "order": [
+      "vods",
+      "twitch_clips"
+    ],
+    "priority": [
+      "gta6",
+      "other_funny"
+    ],
+    "_priority_hinweis": "Prio 1: GTA-6-Momente. Prio 2: andere lustige Momente dieser Streamer (auch Nicht-GTA) als Ergänzung."
   }
 }

@@ -32,6 +32,9 @@ CFG = load_config()
 for _entry in CFG.get("clip_allowlist", {}).get("streamers", []):
     _entry["proof"] = "https://example.com/test-clipper-permission"
 GTA6_ONLY = copy.deepcopy(CFG)
+# Ein reiner GTA-VI-Filter muss GTA V weiterhin aussortieren (live sind seit 2026-11-25 beide erlaubt).
+GTA6_ONLY["gta_filter"]["categories"] = ["Grand Theft Auto VI"]
+GTA6_ONLY["gta_filter"]["games"] = ["gta6"]
 # Bestehende Tests decken beide Spiele ab; der Live-Filter steht in config.json (nur GTA VI).
 CFG["gta_filter"]["categories"] = ["Grand Theft Auto V", "Grand Theft Auto VI"]
 CFG["gta_filter"]["games"] = ["gta5", "gta6"]
@@ -90,7 +93,7 @@ class RadarTests(unittest.TestCase):
     def test_live_allowlist_is_german_only(self):
         from vo import allowlist
         active = {s["twitch_login"] for s in allowlist.streamers(GTA6_ONLY)}
-        self.assertEqual(active, {"montanablack88", "eligella", "xrohat", "trymacs"})
+        self.assertEqual(active, {"eligella", "xrohat", "trymacs", "sidneyeweka", "niklaswilson"})
 
     def test_dedupe_merges_same_vod_window_and_same_id(self):
         groups = dedupe([clip("x", "1", 10), clip("y", "1", 20, offset=115), clip("z", "1", 5, offset=500, title="anders"),
