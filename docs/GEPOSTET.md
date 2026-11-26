@@ -13,4 +13,6 @@ Nie erneut ausliefern. Vor jeder Lieferung hier abgleichen.
 - Monte Leuchtpistole, Rohat Polizist Kofferraum (23.11. 16:26)
 - Rohat erstes Tuning, Trymacs Leguan, Trymacs Scooter (23.11. 13:36)
 - Monte Segelyacht (23.11. 12:23)
-- Rohat Fehlgeschlagen, Rohat SUV-Crash, Rohat Außer Gefecht (26.11. ca. 12:00, Clips 11, 12, 16)
+
+
+Wieder gelöscht (dürfen nach Stil-Auswahl neu geliefert werden): Rohat Fehlgeschlagen, Rohat SUV-Crash, Rohat Außer Gefecht (Clips 11, 12, 16, von Enis am 26.11. gelöscht)

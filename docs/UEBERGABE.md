@@ -18,27 +18,26 @@ Alle Regeln, mit denen die Clips zuletzt erstellt wurden. Ergänzt `CLAUDE.md` u
 
 Rechtsgrundlage: Enis' Bestätigung der mündlichen Stream-Freigabe (`creator_confirmation` in `config.json`).
 
-## Format (Hook-Stil, von Enis am 2026-11-26 freigegeben)
+## Format (Stil D, von Enis am 2026-11-26 11:17 gewählt)
 - Facecam oben (1080x750, Streamer immer komplett sichtbar), Gameplay unten.
-- Weiße Überschrift-Box auf der Naht: ein Satz mit Streamer-Name und ⁉️😳.
-- Der Clip startet direkt am bzw. kurz vor dem Höhepunkt.
-- `hook` in edit.json: großer gelber Text in den ersten 2,6 s, neugierig machend und wahr (z. B. „Rohat hat keine Ahnung, was gleich passiert 😳“).
-- 1 eigene Text-Einblendung (`bubbles`), nur wenn sie stimmt. Emojis wie 💀 rendern nicht; 😳 😂 🔥 funktionieren.
+- Überschrift-Box auf der Naht: ein wahrer Satz mit Streamer-Name. **Keine Emojis im Bild** (libass zeigt sie als Kästchen; `_esc` entfernt sie automatisch).
 - Wort-für-Wort-Untertitel des exakten Wortlauts (unklare Whisper-Wörter in `_roh/words.json` entfernen, nichts erfinden).
-- Originalton, keine Bewegungseffekte, kein Wasserzeichen, Supercar-Outro (`assets/outro`).
-- Länge 12–30 s (höchstens 60 s).
-- Ein Sprachkommentar ist nicht gewünscht.
+- **Kein Hook, keine Text-Einblendungen mitten im Clip** (Bubbles sind im Code abgeschaltet; sie verdecken Gameplay).
+- **Schimpfwörter zensiert**: Anfangsbuchstabe + Sternchen („S******“), automatisch in Untertiteln, Überschrift, Hook und Caption (`vo.split_render.censor`).
+- Der Clip startet direkt am bzw. kurz vor dem Höhepunkt. Originalton, keine Bewegungseffekte, kein Wasserzeichen, Supercar-Outro.
+- Länge 12–30 s (höchstens 60 s). Kein Sprachkommentar.
+- `head_style`: `white` (Standard), `dark` (schwarze Box, pinker Rahmen, Name pink), `light` (weiße Box, pinker Rahmen, Name pink), `clean` (ohne Box, Kontur, Name gelb). **Finale Wahl offen**, siehe „Offen“.
 
 Beispiel `edit.json`:
 ```json
 {"streamer": "xrohat", "start": 14.0, "end": 45.0,
- "headline": "Rohat rammt einen SUV – der hebt fast ab ⁉️😳",
- "hook": {"text": "Rohat hat keine Ahnung, was gleich passiert 😳", "seconds": 2.6},
- "bubbles": [{"start": 12.0, "end": 18.5, "text": "Der Verkehr in GTA 6 kennt keine Gnade 😂"}],
+ "headline": "Rohat rammt einen SUV – der hebt fast ab",
+ "head_style": "dark",
  "caption": "Rohat rammt in GTA 6 einen SUV, der fast umkippt, und regt sich danach über den Verkehr auf.",
  "tags": ["#gta6", "#xrohat", "#verkehr"]}
 ```
-Optional: `facecam` {x,y,w,h} und `game_x` (im 1920x1080-Bild), wenn das Layout vom Standard in `config.json` abweicht (z. B. FC-Streams), sowie `blur` für Chat-Namen.
+Optional: `facecam` {x,y,w,h} und `game_x` (im 1920x1080-Bild), wenn das Layout vom Standard in `config.json` abweicht (z. B. FC-Streams), `blur` für Chat-Namen, `subtitles: false`.
+Nach `python -m vo compose <ordner>` an die letzte Caption-Zeile ` #fyp #foryou #foryoupage #fy` anhängen.
 
 ## Caption (.txt)
 - Zeile 1: ein wahrer Satz. Zeile 2: leer. Zeile 3: Hashtags.
@@ -48,7 +47,7 @@ Optional: `facecam` {x,y,w,h} und `game_x` (im 1920x1080-Bild), wenn das Layout 
 - Keine URLs, keine Quellenangaben, keine Fragen.
 
 ## Lieferung
-- Ein Ordner pro Tag: `~/Downloads/CLIPS_<JJJJ-MM-TT>/`.
+- Ein Ordner pro Tag: `~/Downloads/CLIPS_<JJJJ-MM-TT>/`. Am 2026-11-26: `~/Downloads/CLIPS_2026-11-26_NEU/`.
 - Darin ein Unterordner pro Clip: `NN_<streamer>_<thema>/` mit `NN_<streamer>_<thema>.mp4` und `.txt` (gleicher Name, immer beide). Nummerierung fortlaufend.
 - Jeden Clip sofort liefern, sobald er fertig und geprüft ist. Enis löscht nach dem Posten.
 - Bereits Gepostetes nie erneut liefern (`docs/GEPOSTET.md` pflegen).
@@ -60,6 +59,7 @@ Ablehnen: Nacktheit/Sexuelles (Stripclub, Twerking, Sexszenen; in GTA 6 sehr hä
 - Enis postet manuell, 20–23 Uhr, 2–3 starke Clips pro Abend. Kein API-Posting, keine Browser-Automation, keine gekauften Follower.
 
 ## Offen
-- PR #42: Allowlist Sidney + Willy, Monte aus, GTA V/365 Tage, VOD-Fallback auf Nicht-GTA-Streams, Export `--any-game`/`--logins`, Hook-Stil, Captions ohne @, diese Übergabe. Noch nicht gemergt.
+- **Überschrift-Design**: Vorschauen D1 (dark), D2 (light), D3 (clean) liegen in `~/Downloads/CLIPS_2026-11-26_NEU/VORSCHAU_STILE_NICHT-POSTEN/` (nicht posten). Enis wählt final. Bis dahin keine neuen Clips im finalen Format liefern; danach den gewählten `head_style` als Standard setzen.
+- Rohat-Clips 11, 12, 16 wurden von Enis wieder gelöscht und dürfen im neuen Stil neu geliefert werden.
 - PR #7: YouTube-Check, offen.
 - Secrets liegen nur als GitHub-Repo-Secrets (Twitch, YouTube, TikTok). Nie ins Repo schreiben.
