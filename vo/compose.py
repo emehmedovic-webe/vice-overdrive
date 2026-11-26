@@ -48,6 +48,6 @@ def compose(folder: Path, cfg: dict) -> Path:
                        bubbles=edit.get("bubbles", []), punch=edit.get("punch", []),
                        outro_seconds=float(r.get("outro_seconds", 2.5)),
                        font=r.get("headline_font", "Inter Display"), max_bitrate="3M",
-                       layout=edit.get("layout", "split"))
+                       layout=edit.get("layout", "split"), hook=edit.get("hook"))
     (folder / "caption.txt").write_text(caption + "\n", encoding="utf-8")
     return out

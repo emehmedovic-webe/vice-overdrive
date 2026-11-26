@@ -41,6 +41,7 @@ Style: Word,{font},120,&H0000E6FF,&H0000E6FF,&H00000000,&H96000000,1,0,0,0,100,1
 Style: Bubble,{font},54,&H00180A20,&H00180A20,&H00FFFFFF,&H00FFFFFF,1,0,0,0,100,100,0,0,3,20,0,5,80,80,0,1
 Style: Punch,{font},140,&H0000E6FF,&H0000E6FF,&H00000000,&H96000000,1,0,0,0,100,100,2,0,1,12,8,5,40,40,0,1
 Style: Big,{font},96,&H00FFFFFF,&H00FFFFFF,&H00A01EFF,&H96000000,1,0,0,0,100,100,4,0,1,6,5,5,40,40,0,1
+Style: Hook,{font},74,&H00000000,&H00000000,&H0000E6FF,&H0000E6FF,1,0,0,0,100,100,0,0,3,24,0,5,60,60,0,1
 Style: Small,{font},52,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,1,0,0,0,100,100,6,0,1,4,3,5,40,40,0,1
 
 [Events]
@@ -84,8 +85,12 @@ def word_events(words: list[dict], start: float, end: float, blocked: list[tuple
 
 def write_body_ass(path: Path, *, headline: str, duration: float, words: list[dict], start: float,
                    bubbles: list[dict] = (), punch: list[dict] = (), font: str = "Inter Display",
-                   head_y: int = CAM_H) -> None:
+                   head_y: int = CAM_H, hook: dict | None = None) -> None:
     lines = [_HEADER.format(font=font)]
+    if hook and hook.get("text"):
+        # Hook in den ersten Sekunden (Enis 2026-11-26): groß, gelber Kasten, oben im Gameplay, ohne Animation.
+        lines.append(f"Dialogue: 5,{_ts(0)},{_ts(float(hook.get('seconds', 2.5)))},Hook,,0,0,0,,"
+                     f"{{\\pos(540,{head_y + 230})}}{_esc(wrap(hook['text'], 22))}")
     lines.append(f"Dialogue: 2,{_ts(0)},{_ts(duration)},Head,,0,0,0,,{{\\pos(540,{head_y})}}{_esc(wrap(headline))}")
     for b in bubbles:
         lines.append(f"Dialogue: 3,{_ts(b['start'])},{_ts(b['end'])},Bubble,,0,0,0,,"
@@ -119,7 +124,7 @@ def _run(cmd: list[str], cwd: Path) -> None:
 def render_split(src: Path, out: Path, *, start: float, duration: float, facecam: dict, headline: str,
                  words: list[dict] = (), bubbles: list[dict] = (), punch: list[dict] = (),
                  game_x: float | None = None, blur: list[dict] = (), outro_seconds: float = 2.5, font: str = "Inter Display",
-                 max_bitrate: str = "6M", layout: str = "split") -> Path:
+                 max_bitrate: str = "6M", layout: str = "split", hook: dict | None = None) -> Path:
     """facecam = {x, y, w, h} im auf 1920x1080 skalierten Quellbild. game_x = linker Rand des Gameplay-Ausschnitts.
 
     layout "split": Facecam oben (1080x750), Gameplay unten.
@@ -131,7 +136,7 @@ def render_split(src: Path, out: Path, *, start: float, duration: float, facecam
         gx = int(max(0, min(1920 - gw, (1920 - gw) / 2 if game_x is None else game_x)))
         return _render(src, out, start=start, duration=duration, facecam=facecam, headline=headline, words=words,
                        bubbles=bubbles, punch=punch, blur=blur, outro_seconds=outro_seconds, font=font,
-                       max_bitrate=max_bitrate, head_y=PIP_HEAD_Y,
+                       max_bitrate=max_bitrate, head_y=PIP_HEAD_Y, hook=hook,
                        layout_vf=lambda fx, fy, fw, fh: (
                            f"[s2]crop={gw}:1080:{gx}:0,scale={W}:{H}[game];"
                            f"[s1]crop={fw}:{fh}:{fx}:{fy},scale={PIP_W}:{PIP_MAX_H}:force_original_aspect_ratio=decrease,"
@@ -141,7 +146,7 @@ def render_split(src: Path, out: Path, *, start: float, duration: float, facecam
     gx = int(max(0, min(1920 - gw, (1920 - gw) / 2 if game_x is None else game_x)))
     return _render(src, out, start=start, duration=duration, facecam=facecam, headline=headline, words=words,
                    bubbles=bubbles, punch=punch, blur=blur, outro_seconds=outro_seconds, font=font,
-                   max_bitrate=max_bitrate, head_y=CAM_H,
+                   max_bitrate=max_bitrate, head_y=CAM_H, hook=hook,
                    layout_vf=lambda fx, fy, fw, fh: (
                        # Ganze Facecam einpassen (nichts abschneiden), Rand mit unscharfer Kopie füllen.
                        f"[s1]crop={fw}:{fh}:{fx}:{fy},split[c1][c2];"
@@ -154,13 +159,13 @@ def render_split(src: Path, out: Path, *, start: float, duration: float, facecam
 
 
 def _render(src: Path, out: Path, *, start, duration, facecam, headline, words, bubbles, punch, blur,
-            outro_seconds, font, max_bitrate, head_y, layout_vf) -> Path:
+            outro_seconds, font, max_bitrate, head_y, layout_vf, hook=None) -> Path:
     src, out = Path(src).resolve(), Path(out).resolve()
     fx, fy, fw, fh = (int(facecam[k]) for k in ("x", "y", "w", "h"))
     with tempfile.TemporaryDirectory(prefix="vo-split-") as tmp:
         t = Path(tmp)
         write_body_ass(t / "body.ass", headline=headline, duration=duration, words=list(words), start=start,
-                       bubbles=list(bubbles), punch=list(punch), font=font, head_y=head_y)
+                       bubbles=list(bubbles), punch=list(punch), font=font, head_y=head_y, hook=hook)
         # Eingebrannte Fremd-Untertitel o. Ä. unkenntlich machen (Boxen im 1920x1080-Bild).
         pre = "[0:v]scale=1920:1080,setsar=1"
         for i, bx in enumerate(blur):
