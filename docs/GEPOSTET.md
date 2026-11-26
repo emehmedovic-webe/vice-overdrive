@@ -13,5 +13,4 @@ Nie erneut ausliefern. Vor jeder Lieferung hier abgleichen.
 - Monte Leuchtpistole, Rohat Polizist Kofferraum (23.11. 16:26)
 - Rohat erstes Tuning, Trymacs Leguan, Trymacs Scooter (23.11. 13:36)
 - Monte Segelyacht (23.11. 12:23)
-- Rohat Fehlgeschlagen und Rohat SUV-Crash: am 26.11. ausgeliefert (Ordner 11 und 12), Posting-Status bitte im TikTok Studio prüfen.
-- Willy Charlton-Icon (15): am 26.11. ausgeliefert, Posting-Status bitte prüfen.
+- Rohat Fehlgeschlagen, Rohat SUV-Crash, Rohat Außer Gefecht (26.11. ca. 12:00, Clips 11, 12, 16)
