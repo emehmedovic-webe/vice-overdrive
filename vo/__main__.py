@@ -106,6 +106,9 @@ def main(argv=None) -> None:
                     help="Alle GTA-Clips der letzten 7 Tage berücksichtigen, nicht nur die mit neuem Aufrufzuwachs")
     ex.add_argument("--all-time", action="store_true", help="Meistgesehene Clips aller Zeiten statt nur 7 Tage")
     ex.add_argument("--redo", default="", help="Komma-getrennte Twitch-Clip-Slugs gezielt neu exportieren")
+    ex.add_argument("--any-game", action="store_true",
+                    help="Auch Clips aus anderen Spielen (Prio 2, Enis 2026-11-25), nicht nur GTA")
+    ex.add_argument("--logins", default="", help="Nur diese Streamer (Komma-getrennt, aus der Allowlist)")
     vm = sub.add_parser("vod-mine", help="Laute Momente aus GTA-VODs der Allowlist als Rohmaterial holen")
     vm.add_argument("--out", type=Path, default=Path("vod-momente"))
     vm.add_argument("--per-vod", type=int, default=4)
@@ -158,8 +161,15 @@ def main(argv=None) -> None:
             cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 200}}
         if a.all_time:
             cfg = {**cfg, "radar": {**cfg["radar"], "min_view_delta": 0, "top_n": 400, "all_time": True, "all_time_days": 365}}
+        only = {x.strip().lower() for x in a.logins.split(",") if x.strip()}
+        if only:
+            al = cfg["clip_allowlist"]
+            cfg = {**cfg, "clip_allowlist": {**al, "streamers": [
+                {**s, "active": s.get("active", True) and s["twitch_login"].lower() in only} for s in al["streamers"]]}}
+        if a.any_game:
+            cfg = {**cfg, "gta_filter": {**cfg.get("gta_filter", {}), "enabled": False}}
         rows = run_export(cfg, data.resolve() / "autopilot", a.out, limit=max(1, min(a.limit, 40)),
-                          per_streamer=max(1, min(a.per_streamer, 5)),
+                          per_streamer=max(1, min(a.per_streamer, 5)), any_game=a.any_game,
                           redo=frozenset(x.strip() for x in a.redo.split(",") if x.strip()))
         print(f"Export: {len(rows)} Clips in {a.out}")
         notes = a.out / "CAPTIONS.md"

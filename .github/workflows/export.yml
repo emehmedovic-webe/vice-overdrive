@@ -29,6 +29,14 @@ on:
         description: "Twitch-Clip-Slugs (Komma-getrennt), die gezielt neu geschnitten werden"
         type: string
         default: ""
+      any_game:
+        description: "Auch Clips aus anderen Spielen (nicht nur GTA)"
+        type: boolean
+        default: false
+      logins:
+        description: "Nur diese Streamer (Komma-getrennt), leer = alle aktiven"
+        type: string
+        default: ""
 concurrency:
   group: vice-overdrive-autopilot
   cancel-in-progress: false
@@ -94,9 +102,11 @@ jobs:
           ALL_RECENT: ${{ inputs.all_recent && '--all-recent' || '' }}
           REDO: ${{ inputs.redo || '' }}
           ALL_TIME: ${{ inputs.all_time && '--all-time' || '' }}
+          ANY_GAME: ${{ inputs.any_game && '--any-game' || '' }}
+          LOGINS: ${{ inputs.logins || '' }}
         run: |
           export PATH="${RUNNER_TEMP}/vice-overdrive-venv/bin:$PATH"
-          python3 -m vo export --out tiktok-export --limit "${LIMIT:-15}" --per-streamer "${PER_STREAMER:-2}" ${ALL_RECENT} ${ALL_TIME} --redo "${REDO}"
+          python3 -m vo export --out tiktok-export --limit "${LIMIT:-15}" --per-streamer "${PER_STREAMER:-2}" ${ALL_RECENT} ${ALL_TIME} ${ANY_GAME} --logins "${LOGINS}" --redo "${REDO}"
       - name: Zustand sichern
         if: always()
         uses: actions/cache/save@v4

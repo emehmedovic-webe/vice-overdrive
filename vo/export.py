@@ -58,7 +58,8 @@ def export_caption(src: Path, cfg: dict | None = None, streamer: str | None = No
 
 
 def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15, per_streamer: int = MAX_PER_STREAMER,
-               radar=run_radar, render=prepare_clips, clock=now_utc, redo: frozenset[str] = frozenset()) -> list[dict]:
+               radar=run_radar, render=prepare_clips, clock=now_utc, redo: frozenset[str] = frozenset(),
+               any_game: bool = False) -> list[dict]:
     """redo = Clip-Slugs, die gezielt neu geschnitten werden (z. B. für ein neues Format), auch wenn
     sie schon exportiert wurden. Ist redo gesetzt, werden nur diese Clips exportiert."""
     root = root.resolve()
@@ -98,7 +99,7 @@ def run_export(cfg: dict, root: Path, out: Path, *, limit: int = 15, per_streame
                     held.append({"streamer": login, "title": title, "source": clip.get("url", ""), "reason": reason})
                 continue
             game = clip_game(clip, report.get("gta_categories", {}))
-            if game not in allowed:
+            if game not in allowed and not any_game:
                 continue
             hit = next((w for w in blocked if w in title.casefold()), None)
             if hit:
