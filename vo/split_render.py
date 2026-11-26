@@ -54,7 +54,13 @@ def _ts(s: float) -> str:
     return f"{int(s // 3600)}:{int(s % 3600 // 60):02d}:{s % 60:05.2f}"
 
 
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D\u2049\u203C]+")
+
+
 def _esc(text: str) -> str:
+    # Emojis rendert libass nicht sauber (Enis 2026-11-26: „man erkennt die Smileys nicht“) – im Bildtext weglassen.
+    text = text.replace("\u2049", "?!").replace("\u203C", "!!")
+    text = re.sub(r" *\n *", "\n", re.sub(r" {2,}", " ", _EMOJI.sub("", text))).strip()
     return text.replace("\\", "").replace("{", "(").replace("}", ")").replace("\n", "\\N")
 
 
