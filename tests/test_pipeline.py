@@ -1140,3 +1140,9 @@ class SplitFormatTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_censor_keeps_first_letter():
+    from vo.split_render import censor
+    assert censor("Scheiße, ich bin gefickt") == "S******, ich bin g******"
+    assert censor("Das ist insane") == "Das ist insane"

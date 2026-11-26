@@ -21,7 +21,7 @@ import json
 from pathlib import Path
 
 from . import allowlist
-from .split_render import load_words, render_split
+from .split_render import censor, load_words, render_split
 from .texts import tiktok_caption_problems
 
 
@@ -37,7 +37,7 @@ def compose(folder: Path, cfg: dict) -> Path:
     start, end = float(edit.get("start", 0)), float(edit["end"])
     if not 0 < end - start <= 60:
         raise SystemExit("Ausschnitt muss zwischen 0 und 60 Sekunden lang sein.")
-    caption = f"{edit['caption'].strip()}\n\n{' '.join(edit['tags'])}"
+    caption = f"{censor(edit['caption'].strip())}\n\n{' '.join(edit['tags'])}"
     problems = tiktok_caption_problems(caption)
     if problems:
         raise SystemExit("Caption: " + " ".join(problems))
@@ -49,6 +49,7 @@ def compose(folder: Path, cfg: dict) -> Path:
                         punch=edit.get("punch", []),
                        outro_seconds=float(r.get("outro_seconds", 2.5)),
                        font=r.get("headline_font", "Inter Display"), max_bitrate="3M",
-                       layout=edit.get("layout", "split"), hook=edit.get("hook"))
+                       layout=edit.get("layout", "split"), hook=edit.get("hook"),
+                       head_style=edit.get("head_style", "white"))
     (folder / "caption.txt").write_text(caption + "\n", encoding="utf-8")
     return out
