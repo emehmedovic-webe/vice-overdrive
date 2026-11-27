@@ -26,7 +26,7 @@ Rechtsgrundlage: Enis' Bestätigung der mündlichen Stream-Freigabe (`creator_co
 - **Schimpfwörter zensiert**: Anfangsbuchstabe + Sternchen („S******“), automatisch in Untertiteln, Überschrift, Hook und Caption (`vo.split_render.censor`).
 - Der Clip startet direkt am bzw. kurz vor dem Höhepunkt. Originalton, keine Bewegungseffekte, kein Wasserzeichen, Supercar-Outro.
 - Länge 12–30 s (höchstens 60 s). Kein Sprachkommentar.
-- `head_style`: `white` (Standard), `dark` (schwarze Box, pinker Rahmen, Name pink), `light` (weiße Box, pinker Rahmen, Name pink), `clean` (ohne Box, Kontur, Name gelb). **Finale Wahl offen**, siehe „Offen“.
+- `head_style`: **`dark` = D1 ist Standard** (von Enis am 2026-11-26 abends gewählt: schwarze Box, pinker Rahmen, Name pink). Weitere: `white`, `light` (weiße Box, pinker Rahmen), `clean` (ohne Box, Kontur, Name gelb).
 
 Beispiel `edit.json`:
 ```json
@@ -59,7 +59,9 @@ Ablehnen: Nacktheit/Sexuelles (Stripclub, Twerking, Sexszenen; in GTA 6 sehr hä
 - Enis postet manuell, 20–23 Uhr, 2–3 starke Clips pro Abend. Kein API-Posting, keine Browser-Automation, keine gekauften Follower.
 
 ## Offen
-- **Überschrift-Design**: Vorschauen D1 (dark), D2 (light), D3 (clean) liegen in `~/Downloads/CLIPS_2026-11-26_NEU/VORSCHAU_STILE_NICHT-POSTEN/` (nicht posten). Enis wählt final. Bis dahin keine neuen Clips im finalen Format liefern; danach den gewählten `head_style` als Standard setzen.
-- Rohat-Clips 11, 12, 16 wurden von Enis wieder gelöscht und dürfen im neuen Stil neu geliefert werden.
+- ~~Überschrift-Design~~: entschieden, D1 `dark` (2026-11-26).
+- Lokal auf dem Mac rendern: Homebrew-`ffmpeg` hat kein libass. Vorher `export PATH=/opt/homebrew/opt/ffmpeg-full/bin:$PATH` setzen. Lokales Transkribieren geht nicht (kein faster-whisper auf dem Mac), `words.json` kommt nur aus den Workflows.
+- Rohat-Clips 11, 12, 16 wurden von Enis wieder gelöscht und dürfen im neuen Stil neu geliefert werden. 16 ist in D1 neu geliefert (2026-11-26 abends). Für 11 und 12 fehlt das Rohmaterial mit `words.json` lokal.
+- 2026-11-26 abends neu geliefert (D1): 16 Rohat außer Gefecht, 17 Trymacs Angelrute statt Stinger, 18 Trymacs 300 km/h im Verkehr (aus `vod-momente-2026-11-26_1804`). Nicht geliefert, weil zu schwach: Rohat „Fliegen ist meine Disziplin“ (`xrohat_2935536679_14h49m39s`, Facecam statisch, Landung nicht zu sehen). Export 14:35 komplett abgelehnt.
 - PR #7: YouTube-Check, offen.
 - Secrets liegen nur als GitHub-Repo-Secrets (Twitch, YouTube, TikTok). Nie ins Repo schreiben.

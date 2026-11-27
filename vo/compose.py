@@ -50,6 +50,6 @@ def compose(folder: Path, cfg: dict) -> Path:
                        outro_seconds=float(r.get("outro_seconds", 2.5)),
                        font=r.get("headline_font", "Inter Display"), max_bitrate="3M",
                        layout=edit.get("layout", "split"), hook=edit.get("hook"),
-                       head_style=edit.get("head_style", "white"))
+                       head_style=edit.get("head_style", "dark"))  # Enis 2026-11-26: D1 dark ist Standard
     (folder / "caption.txt").write_text(caption + "\n", encoding="utf-8")
     return out
