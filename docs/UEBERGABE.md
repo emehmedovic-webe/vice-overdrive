@@ -41,7 +41,7 @@ Nach `python -m vo compose <ordner>` an die letzte Caption-Zeile ` #fyp #foryou 
 
 ## Caption (.txt)
 - Zeile 1: ein wahrer Satz. Zeile 2: leer. Zeile 3: Hashtags.
-- Hashtags: `#gta6` (bzw. Spiel-Tag) `#<streamer>` `#<thema>` `#fyp #foryou #foryoupage #fy`.
+- Hashtags (ab 2026-11-27): `#gta6` (bzw. Spiel-Tag) `#<streamer>` `#<konkretes thema>` `#gaming`, danach `#fyp #foryou #foryoupage #fy`. Die ersten vier stehen in `edit.json` (Code erlaubt dort nur 2–4), der Rest wird nach `compose` angehängt. Thema-Tag möglichst ein Begriff, nach dem Leute suchen (z. B. `#eldenring`, `#gym`, `#wasserflugzeug`), nicht ein Satzfragment.
 - **Kein @-Erwähnen des Streamers.**
 - Reines ASCII, UTF-8 ohne BOM. Hinweis: TikTok macht eingefügte Hashtags nicht fett. Entweder selbst tippen oder nach dem Einfügen hinter jedem Hashtag ein Leerzeichen setzen.
 - Keine URLs, keine Quellenangaben, keine Fragen.
@@ -63,5 +63,6 @@ Ablehnen: Nacktheit/Sexuelles (Stripclub, Twerking, Sexszenen; in GTA 6 sehr hä
 - Lokal auf dem Mac rendern: Homebrew-`ffmpeg` hat kein libass. Vorher `export PATH=/opt/homebrew/opt/ffmpeg-full/bin:$PATH` setzen. Lokales Transkribieren geht nicht (kein faster-whisper auf dem Mac), `words.json` kommt nur aus den Workflows.
 - Rohat-Clips 11, 12, 16 wurden von Enis wieder gelöscht und dürfen im neuen Stil neu geliefert werden. 16 ist in D1 neu geliefert (2026-11-26 abends). Für 11 und 12 fehlt das Rohmaterial mit `words.json` lokal.
 - 2026-11-26 abends neu geliefert (D1): 16 Rohat außer Gefecht, 17 Trymacs Angelrute statt Stinger, 18 Trymacs 300 km/h im Verkehr (aus `vod-momente-2026-11-26_1804`). Nicht geliefert, weil zu schwach: Rohat „Fliegen ist meine Disziplin“ (`xrohat_2935536679_14h49m39s`, Facecam statisch, Landung nicht zu sehen). Export 14:35 komplett abgelehnt.
+- 2026-11-27 geliefert in `~/Downloads/CLIPS_2026-11-27/`: 20 Willy GTA-Disziplin (Kettlebells), 21 Sidney Wasserflugzeug-Landung, 22 Trymacs Elden-Ring-Boss. Zurückgestellt: Rohat „Niko Bellic Comeback“ (`tiktok-export-2026-11-27_1853/13`, fast nur Zwischensequenz mit englischem Spielton, Rohat sagt kaum etwas) – Enis am 2026-11-27: weglassen. Reine Zwischensequenzen mit wenig Streamer-Reaktion grundsätzlich nicht schneiden.
 - PR #7: YouTube-Check, offen.
 - Secrets liegen nur als GitHub-Repo-Secrets (Twitch, YouTube, TikTok). Nie ins Repo schreiben.
